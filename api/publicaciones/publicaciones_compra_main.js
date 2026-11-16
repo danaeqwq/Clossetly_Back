@@ -159,17 +159,17 @@ router.get("/", (req, res) => {
         ORDER BY ${orden}
     `;
 
-    db.query(consulta, valores, (error, publicaciones) => {
-        if (error) {
+    db.query(consulta, valores)
+        .then(([publicaciones]) => {
+            res.json({ publicaciones });
+        })
+        .catch((error) => {
             console.error("Error al obtener publicaciones de compra:", error);
 
-            return res.status(500).json({
+            res.status(500).json({
                 mensaje: "Error al obtener las publicaciones de compra"
             });
-        }
-
-        res.json({ publicaciones });
-    });
+        });
 });
 
 router.get("/:id", (req, res) => {
@@ -234,15 +234,8 @@ router.get("/:id", (req, res) => {
         AND p.privacidad = 1
     `;
 
-    db.query(consulta, [id], (error, resultados) => {
-        if (error) {
-            console.error("Error al obtener detalle de compra:", error);
-
-            return res.status(500).json({
-                mensaje: "Error al obtener el detalle de la publicación"
-            });
-        }
-
+    db.query(consulta, [id])
+    .then(([resultados]) => {
         if (resultados.length === 0) {
             return res.status(404).json({
                 mensaje: "Publicación no encontrada"
@@ -250,6 +243,13 @@ router.get("/:id", (req, res) => {
         }
 
         res.json({ publicacion: resultados[0] });
+    })
+    .catch((error) => {
+        console.error("Error al obtener detalle de compra:", error);
+
+        res.status(500).json({
+            mensaje: "Error al obtener el detalle de la publicación"
+        });
     });
 });
 

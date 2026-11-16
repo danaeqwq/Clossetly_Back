@@ -15,27 +15,17 @@ router.get("/", (req, res) => {
     ];
 
     Promise.all(
-        consultas.map((consulta) =>
-            new Promise((resolve, reject) => {
-                db.query(consulta, (error, resultado) => {
-                    if (error) {
-                        reject(error);
-                    } else {
-                        resolve(resultado);
-                    }
-                });
-            })
-        )
+        consultas.map((consulta) => db.query(consulta))
     )
         .then(([
-            categorias,
-            talles,
-            temporadas,
-            estados,
-            ocasiones,
-            generos,
-            colores,
-            estilos
+            [categorias],
+            [talles],
+            [temporadas],
+            [estados],
+            [ocasiones],
+            [generos],
+            [colores],
+            [estilos]
         ]) => {
             res.json({
                 categorias,

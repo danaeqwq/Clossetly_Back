@@ -1,4 +1,3 @@
-
 const router = require("express").Router();
 const db = require("../../config/db");
 
@@ -187,16 +186,16 @@ router.get("/", (req, res) => {
     `;
 
     // EJECUTAR CONSULTA
-    db.query(consulta, valores, (error, publicaciones) => {
-        if (error) {
-            console.error("Error al obtener publicaciones de intercambio:", error);
-
-            return res.status(500).json({
-                mensaje: "Error al obtener las publicaciones de intercambio"
-            });
-        }
-
+    db.query(consulta, valores)
+    .then(([publicaciones]) => {
         res.json({ publicaciones });
+    })
+    .catch((error) => {
+        console.error("Error al obtener publicaciones de intercambio:", error);
+
+        res.status(500).json({
+            mensaje: "Error al obtener las publicaciones de intercambio"
+        });
     });
 });
 
@@ -294,15 +293,8 @@ router.get("/:id", (req, res) => {
         AND p.privacidad = 1
     `;
 
-    db.query(consulta, [id], (error, resultados) => {
-        if (error) {
-            console.error("Error al obtener detalle de intercambio:", error);
-
-            return res.status(500).json({
-                mensaje: "Error al obtener el detalle de la publicación"
-            });
-        }
-
+    db.query(consulta, [id])
+    .then(([resultados]) => {
         if (resultados.length === 0) {
             return res.status(404).json({
                 mensaje: "Publicación no encontrada"
@@ -310,6 +302,13 @@ router.get("/:id", (req, res) => {
         }
 
         res.json({ publicacion: resultados[0] });
+    })
+    .catch((error) => {
+        console.error("Error al obtener detalle de intercambio:", error);
+
+        res.status(500).json({
+            mensaje: "Error al obtener el detalle de la publicación"
+        });
     });
 });
 
