@@ -1,6 +1,6 @@
-
 const jwt = require("jsonwebtoken");
 const { TOKEN_SECRET } = process.env;
+const db = require("../../config/db");
 
 // VERIFICAR TOKEN
 function middlewareSeg(req, res, next) {
@@ -17,14 +17,43 @@ function middlewareSeg(req, res, next) {
     try {
         const user = jwt.verify(token, TOKEN_SECRET);
 
-        req.user = user;
+        const consulta = `
+            SELECT Id_usuario, nombre, correo, rol, estado_usuario
+            FROM usuarios
+            WHERE Id_usuario = ?
+        `;
 
-        next();
+        db.query(consulta, [user.id])
+            .then(([resultados]) => {
+                if (resultados.length === 0) {
+                    return res.status(401).json({
+                        mensaje: "El usuario no existe"
+                    });
+                }
+
+                const usuario = resultados[0];
+
+                if (usuario.estado_usuario !== "Activo") {
+                    return res.status(403).json({
+                        mensaje: "Tu cuenta no está activa"
+                    });
+                }
+
+                req.user = usuario;
+                next();
+            })
+            .catch((error) => {
+                console.error("Error al verificar usuario:", error);
+
+                res.status(500).json({
+                    mensaje: "Error al verificar el usuario"
+                });
+            });
 
     } catch (error) {
         console.error("Error al verificar token:", error);
 
-        res.status(403).json({
+        return res.status(401).json({
             mensaje: "Token inválido o vencido"
         });
     }

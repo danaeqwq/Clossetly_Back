@@ -1,6 +1,9 @@
 
 const router = require("express").Router();
 
+const middlewareSeg = require("./middlewares/middlewareSeg");
+const middlewareRol = require("./middlewares/middlewareRol");
+
 const compraRouter = require("./publicaciones/publicaciones_compra_main");
 const intercambioRouter = require("./publicaciones/publicaciones_intercambio_main");
 const filtrosRouter = require("./filtros/filtros_main");

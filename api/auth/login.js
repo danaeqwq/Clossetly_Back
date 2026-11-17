@@ -24,7 +24,6 @@ router.post("/", (req, res) => {
                 pass,
                 usuario.contraseña
             );
-
             if (!coincide) {
                 return res.status(401).json({
                     mensaje: "Correo o contraseña incorrectos"

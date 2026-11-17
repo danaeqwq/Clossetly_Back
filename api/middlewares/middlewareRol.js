@@ -7,9 +7,7 @@ function middlewareRol(rolPermitido) {
                 mensaje: "No tenés permisos para acceder"
             });
         }
-
         next();
     };
 }
-
 module.exports = middlewareRol;
