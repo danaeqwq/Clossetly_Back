@@ -1,4 +1,3 @@
-
 const router = require("express").Router();
 
 const middlewareSeg = require("./middlewares/middlewareSeg");
@@ -17,16 +16,19 @@ const categoriasRouter = require("./categorias/categorias_main");
 const loginRouter = require("./auth/login");
 const registroRouter = require("./auth/registro");
 
+// RUTAS PÚBLICAS
 router.use("/login", loginRouter);
 router.use("/registro", registroRouter);
 
-router.use("/prendas", prendasRouter);
-router.use("/categorias", categoriasRouter);
+// RUTAS PROTEGIDAS: USUARIOS CON SESIÓN
+router.use("/publicaciones/compra", middlewareSeg, compraRouter);
+router.use("/publicaciones/intercambio", middlewareSeg, intercambioRouter);
+router.use("/filtros", middlewareSeg, filtrosRouter);
+router.use("/pedidos", middlewareSeg, pedidoRouter);
+router.use("/prendas", middlewareSeg, prendasRouter);
+router.use("/categorias", middlewareSeg, categoriasRouter);
 router.use("/outfits", outfitsRouter);
-
-router.use("/publicaciones/compra", compraRouter);
-router.use("/publicaciones/intercambio", intercambioRouter);
-router.use("/filtros", filtrosRouter);
-router.use("/pedidos", pedidoRouter);
+// RUTAS DE ADMINISTRACIÓN
+router.use("/admin", middlewareSeg, middlewareRol("Admin"));
 
 module.exports = router;
