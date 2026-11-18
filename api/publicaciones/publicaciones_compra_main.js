@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const db = require("../../config/db");
+const middlewareSeg = require("../middlewares/middlewareSeg");
 
 router.get("/", (req, res) => {
   const {
@@ -326,7 +327,6 @@ router.put("/:id", middlewareSeg, async (req, res) => {
       });
     }
 
-    // Comprobar que la publicación pertenece al usuario
     const [publicaciones] = await db.query(
       `SELECT pc.id_publicacion_compra
        FROM publicaciones_compra pc
