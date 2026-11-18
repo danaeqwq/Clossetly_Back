@@ -3,10 +3,12 @@ const express = require("express");
 const cors = require("cors");
 const { PORT } = process.env;
 const apiRouter = require("./api/main");
+const fileUpload = require("express-fileupload");
 const app = express();
 
 app.use("/uploads", express.static("uploads"));
 app.use(cors());
+app.use(fileUpload());
 app.use(express.json());
 app.use("/api", apiRouter);
 app.use("/archivos", express.static("archivos"));
