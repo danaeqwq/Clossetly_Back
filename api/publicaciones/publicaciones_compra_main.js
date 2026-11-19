@@ -15,7 +15,6 @@ router.get("/", (req, res) => {
     ordenPrecio,
   } = req.query;
 
-  // CONVERTIR LOS FILTROS EN ARRAYS
   const listaColores = Array.isArray(colores)
     ? colores
     : colores
