@@ -7,9 +7,9 @@ const compraRouter = require("./publicaciones/publicaciones_compra_main");
 const intercambioRouter = require("./publicaciones/publicaciones_intercambio_main");
 const filtrosRouter = require("./filtros/filtros_main");
 const pedidoRouter = require("./pedidos/pedidos_main");
-
 const prendasRouter = require("./prendas/prendas_main");
 const outfitsRouter = require("./outfits/outfits_main");
+const usuarioRouter = require("./usuarios/usuarios_main");
 
 const categoriasRouter = require("./categorias/categorias_main");
 
@@ -28,6 +28,7 @@ router.use("/pedidos", middlewareSeg, pedidoRouter);
 router.use("/prendas", middlewareSeg, prendasRouter);
 router.use("/categorias", middlewareSeg, categoriasRouter);
 router.use("/outfits", outfitsRouter);
+router.use("/usuarios", middlewareSeg, usuarioRouter);
 // RUTAS DE ADMINISTRACIÓN
 router.use("/admin", middlewareSeg, middlewareRol("Admin"));
 

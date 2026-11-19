@@ -33,7 +33,7 @@ function middlewareSeg(req, res, next) {
 
                 const usuario = resultados[0];
 
-                if (usuario.estado_usuario !== "Activo") {
+                if (Number(usuario.estado_usuario) !== 1) {
                     return res.status(403).json({
                         mensaje: "Tu cuenta no está activa"
                     });

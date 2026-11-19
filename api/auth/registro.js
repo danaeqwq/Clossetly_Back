@@ -1,54 +1,91 @@
-
 const router = require("express").Router();
 
-const { hashPass } = require("./funciones");
 const db = require("../../config/db");
+const { hashPass } = require("./funciones");
 
-// REGISTRAR USUARIO
-router.post("/", async (req, res) => {
-    const { nombre, correo, pass } = req.body;
-
-    if (!nombre || !correo || !pass) {
+router.post("/", (req, res) => {
+    const { nombre, correo, pass, telefono } = req.body;
+    // VALIDAR CAMPOS
+    if (!nombre || !correo || !pass || !telefono) {
         return res.status(400).json({
             mensaje: "Todos los campos son obligatorios"
         });
     }
+    const nombreLimpio = nombre.trim();
+    const correoLimpio = correo.trim();
+    const telefonoLimpio = telefono.trim();
 
-    try {
-        const hash = await hashPass(pass);
+    // VERIFICAR SI EL NOMBRE O CORREO YA ESTÁN REGISTRADOS
+    const consultaVerificar = `
+        SELECT nombre, correo
+        FROM usuarios
+        WHERE LOWER(nombre) = LOWER(?)
+        OR LOWER(correo) = LOWER(?)
+    `;
 
-const consulta = `
-    INSERT INTO usuarios (nombre, correo, contraseña, rol, foto_perfil, teléfono, estado_usuario)
-    VALUES (?, ?, ?, 'Usuario', NULL, NULL, '1')
-`;
-        db.query(consulta, [nombre, correo, hash])
-            .then(([resultado]) => {
-                res.status(201).json({
-                    mensaje: "Usuario registrado correctamente",
-                    id: resultado.insertId
+    db.query(consultaVerificar, [nombreLimpio, correoLimpio])
+        .then(([resultados]) => {
+            // VERIFICAR NOMBRE REPETIDO
+            const nombreExiste = resultados.some(
+                (usuario) =>
+                    usuario.nombre.toLowerCase() === nombreLimpio.toLowerCase()
+            );
+            if (nombreExiste) {
+                return res.status(409).json({
+                    mensaje: "Ese nombre de usuario ya está registrado"
                 });
-            })
-            .catch((error) => {
-                console.error("Error al registrar usuario:", error);
-
-                if (error.code === "ER_DUP_ENTRY") {
-                    return res.status(409).json({
-                        mensaje: "El correo ya está registrado"
-                    });
-                }
-
-                res.status(500).json({
-                    mensaje: "Error al registrar usuario"
+            }
+            // VERIFICAR CORREO REPETIDO
+            const correoExiste = resultados.some(
+                (usuario) =>
+                    usuario.correo.toLowerCase() === correoLimpio.toLowerCase()
+            );
+            if (correoExiste) {
+                return res.status(409).json({
+                    mensaje: "Ese correo electrónico ya está registrado"
                 });
+            }
+
+            // SI NINGUNO EXISTE, CONTINUAR CON EL REGISTRO
+            return hashPass(pass)
+                .then((hash) => {
+                    const consultaInsertar = `
+                        INSERT INTO usuarios
+                        (nombre, correo, contraseña, rol, foto_perfil, teléfono, estado_usuario)
+                        VALUES (?, ?, ?, 'Usuario', 'uploads/perfiles/fotoUsuario1', ?, 1)
+                    `;
+
+                    return db.query(consultaInsertar, [
+                        nombreLimpio,
+                        correoLimpio,
+                        hash,
+                        telefonoLimpio
+                    ]);
+                });
+        })
+        .then((resultado) => {
+            if (!resultado) return;
+
+            const [datos] = resultado;
+
+            res.status(201).json({
+                mensaje: "Usuario registrado correctamente",
+                id: datos.insertId
             });
+        })
+        .catch((error) => {
+            console.error("Error al registrar usuario:", error);
 
-    } catch (error) {
-        console.error("Error al encriptar contraseña:", error);
+            if (error.code === "ER_DUP_ENTRY") {
+                return res.status(409).json({
+                    mensaje: "El nombre de usuario o correo ya está registrado"
+                });
+            }
 
-        res.status(500).json({
-            mensaje: "Error al registrar usuario"
+            res.status(500).json({
+                mensaje: "Error al registrar usuario"
+            });
         });
-    }
 });
 
 module.exports = router;
