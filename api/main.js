@@ -10,6 +10,8 @@ const pedidoRouter = require("./pedidos/pedidos_main");
 const prendasRouter = require("./prendas/prendas_main");
 const outfitsRouter = require("./outfits/outfits_main");
 const usuarioRouter = require("./usuarios/usuarios_main");
+const preguntasRouter = require("./testEstilo/preguntas/preguntas_main");
+const resultadosRouter = require("./testEstilo/resultados/resultados_main");
 
 const loginRouter = require("./auth/login");
 const registroRouter = require("./auth/registro");
@@ -19,6 +21,9 @@ router.use("/login", loginRouter);
 router.use("/registro", registroRouter);
 router.use("/publicaciones/compra", compraRouter);
 router.use("/publicaciones/intercambio", intercambioRouter);
+
+router.use("/test-estilo/preguntas", preguntasRouter);
+router.use("/test-estilo/resultados", resultadosRouter);
 
 // RUTAS PROTEGIDAS: USUARIOS CON SESIÓN
 router.use("/filtros", middlewareSeg, filtrosRouter);
