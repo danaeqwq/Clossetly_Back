@@ -11,8 +11,6 @@ const prendasRouter = require("./prendas/prendas_main");
 const outfitsRouter = require("./outfits/outfits_main");
 const usuarioRouter = require("./usuarios/usuarios_main");
 
-const categoriasRouter = require("./categorias/categorias_main");
-
 const loginRouter = require("./auth/login");
 const registroRouter = require("./auth/registro");
 
@@ -26,7 +24,6 @@ router.use("/publicaciones/intercambio", middlewareSeg, intercambioRouter);
 router.use("/filtros", middlewareSeg, filtrosRouter);
 router.use("/pedidos", middlewareSeg, pedidoRouter);
 router.use("/prendas", middlewareSeg, prendasRouter);
-router.use("/categorias", middlewareSeg, categoriasRouter);
 router.use("/outfits", outfitsRouter);
 router.use("/usuarios", middlewareSeg, usuarioRouter);
 // RUTAS DE ADMINISTRACIÓN
