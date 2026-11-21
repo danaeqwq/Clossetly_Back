@@ -93,7 +93,12 @@ router.get("/", (req, res) => {
 
   // FILTROS ESPECÍFICOS DE INTERCAMBIO
   if (estadoMinimoAceptado) {
-    condiciones.push("p.id_estado_prenda <= ?");
+    condiciones.push(`
+    (
+      pi.estado_MA IS NULL
+      OR p.id_estado_prenda <= ?
+    )
+  `);
     valores.push(Number(estadoMinimoAceptado));
   }
 
@@ -209,66 +214,61 @@ router.get("/", (req, res) => {
 router.get("/mis", middlewareSeg, async (req, res) => {
   const idUsuario = req.user.id;
 
-  const consulta = `
-    SELECT
-      pi.Id_publicacion_intercambio AS id,
-      'intercambio' AS tipo,
-      tb.talla AS talleBuscado,
-      ema.estado_prenda AS estadoMinimoAceptado,
-
-      (
-        SELECT JSON_ARRAYAGG(c2.categoria)
-        FROM categorias_aceptadas ca2
-        INNER JOIN categorias c2 ON ca2.id_categoria = c2.id_categoria
-        WHERE ca2.id_publicacion_intercambio = pi.Id_publicacion_intercambio
-      ) AS tiposAceptados,
-
-      (
-        SELECT JSON_ARRAYAGG(e.estilo)
-        FROM prendas_estilos pe
-        INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
-        WHERE pe.id_prenda = p.id_prenda
-      ) AS estilos,
-
-      p.id_prenda AS idPrenda,
-      p.nombre,
-      p.imagen,
-      p.privacidad,
-
-      ta.talla AS talle,
-      ep.estado_prenda AS estado,
-      g.genero,
-      ca.id_categoria AS idCategoria,
-      ca.categoria AS prenda,
-      co.color AS color,
-      co.codigo AS codigoColor,
-      te.temporada,
-      oc.ocacion AS ocasion
-
-    FROM publicaciones_intercambio pi
-    INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
-    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
-    LEFT JOIN colores co ON p.id_color = co.id_color
-    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
-    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
-    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
-    LEFT JOIN generos g ON p.id_genero = g.id_genero
-    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
-    LEFT JOIN tallas tb ON pi.talle_buscado = tb.id_talla
-    LEFT JOIN estados_prenda ema ON pi.estado_MA = ema.id_estado_prenda
-
-    WHERE p.Id_usuario = ?
-    ORDER BY pi.Id_publicacion_intercambio DESC
-  `;
-
   try {
+    const consulta = `
+  SELECT
+    pi.*,
+    p.nombre,
+    p.imagen,
+    p.privacidad,
+    ca.categoria AS categoria,
+    ta.talla AS talle,
+    te.temporada,
+    ep.estado_prenda AS estado,
+    oc.ocacion AS ocasion,
+    g.genero,
+    co.color AS color,
+    ema.estado_prenda AS estadoMinimoAceptado,
+
+    (
+  SELECT JSON_ARRAYAGG(e.estilo)
+  FROM prendas_estilos pe
+  INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
+  WHERE pe.id_prenda = p.id_prenda
+) AS estilos,
+
+(
+  SELECT JSON_ARRAYAGG(catAceptada.categoria)
+  FROM categorias_aceptadas ca
+  INNER JOIN categorias catAceptada
+    ON ca.id_categoria = catAceptada.id_categoria
+  WHERE ca.id_publicacion_intercambio = pi.Id_publicacion_intercambio
+) AS tiposAceptados
+
+  FROM publicaciones_intercambio pi
+  INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+  LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+  LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+  LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+  LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+  LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
+  LEFT JOIN generos g ON p.id_genero = g.id_genero
+  LEFT JOIN colores co ON p.id_color = co.id_color
+  LEFT JOIN estados_prenda ema ON pi.estado_MA = ema.id_estado_prenda
+
+  WHERE p.id_usuario = ?
+  ORDER BY pi.id_publicacion_intercambio DESC
+`;
+
     const [publicaciones] = await db.query(consulta, [idUsuario]);
 
-    res.json({ publicaciones });
+    res.json(publicaciones);
   } catch (error) {
-    console.error("Error al obtener mis intercambios:", error);
+    console.error("Error al cargar mis intercambios:", error);
+    console.log(error.sqlMessage);
+    console.log(error.message);
     res.status(500).json({
-      mensaje: "Error al obtener tus publicaciones de intercambio",
+      mensaje: error.sqlMessage || error.message,
     });
   }
 });
@@ -399,7 +399,7 @@ router.post("/", middlewareSeg, async (req, res) => {
 
     if (
       !Number.isInteger(Number(id_prenda)) ||
-      !Number.isInteger(Number(estado_MA)) ||
+      (estado_MA !== null && !Number.isInteger(Number(estado_MA))) ||
       !Number.isInteger(Number(talle_buscado)) ||
       !Array.isArray(categoriasAceptadas)
     ) {
@@ -477,7 +477,7 @@ router.put("/:id", middlewareSeg, async (req, res) => {
     const { estado_MA, talle_buscado, categoriasAceptadas = [] } = req.body;
 
     if (
-      !Number.isInteger(Number(estado_MA)) ||
+      (estado_MA !== null && !Number.isInteger(Number(estado_MA))) ||
       !Number.isInteger(Number(talle_buscado)) ||
       !Array.isArray(categoriasAceptadas)
     ) {

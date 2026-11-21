@@ -17,10 +17,10 @@ const registroRouter = require("./auth/registro");
 // RUTAS PÚBLICAS
 router.use("/login", loginRouter);
 router.use("/registro", registroRouter);
+router.use("/publicaciones/compra", compraRouter);
+router.use("/publicaciones/intercambio", intercambioRouter);
 
 // RUTAS PROTEGIDAS: USUARIOS CON SESIÓN
-router.use("/publicaciones/compra", middlewareSeg, compraRouter);
-router.use("/publicaciones/intercambio", middlewareSeg, intercambioRouter);
 router.use("/filtros", middlewareSeg, filtrosRouter);
 router.use("/pedidos", middlewareSeg, pedidoRouter);
 router.use("/prendas", middlewareSeg, prendasRouter);
