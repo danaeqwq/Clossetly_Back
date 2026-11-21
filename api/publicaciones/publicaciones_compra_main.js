@@ -175,6 +175,64 @@ router.get("/", (req, res) => {
     });
 });
 
+router.get("/mis", middlewareSeg, async (req, res) => {
+  const idUsuario = req.user.id;
+
+  const consulta = `
+    SELECT
+      pc.id_publicacion_compra AS id,
+      'venta' AS tipo,
+      pc.precio_unitario AS precio,
+      pc.stock,
+
+      p.id_prenda AS idPrenda,
+      p.nombre,
+      p.imagen,
+      p.privacidad,
+
+      ta.talla AS talle,
+      ep.estado_prenda AS estado,
+      g.genero,
+      ca.id_categoria AS idCategoria,
+      ca.categoria AS categoria,
+      te.temporada,
+      oc.ocacion AS ocasion,
+      co.color AS color,
+      co.codigo AS codigoColor,
+
+      (
+        SELECT JSON_ARRAYAGG(e.estilo)
+        FROM prendas_estilos pe
+        INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
+        WHERE pe.id_prenda = p.id_prenda
+      ) AS estilos
+
+    FROM publicaciones_compra pc
+    INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
+    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN generos g ON p.id_genero = g.id_genero
+    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN colores co ON p.id_color = co.id_color
+
+    WHERE p.Id_usuario = ?
+    ORDER BY pc.id_publicacion_compra DESC
+  `;
+
+  try {
+    const [publicaciones] = await db.query(consulta, [idUsuario]);
+
+    res.json({ publicaciones });
+  } catch (error) {
+    console.error("Error al obtener mis ventas:", error);
+    res.status(500).json({
+      mensaje: "Error al obtener tus publicaciones de compra",
+    });
+  }
+});
+
 router.get("/:id", (req, res) => {
   const { id } = req.params;
 

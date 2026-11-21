@@ -206,6 +206,73 @@ router.get("/", (req, res) => {
     });
 });
 
+router.get("/mis", middlewareSeg, async (req, res) => {
+  const idUsuario = req.user.id;
+
+  const consulta = `
+    SELECT
+      pi.Id_publicacion_intercambio AS id,
+      'intercambio' AS tipo,
+      tb.talla AS talleBuscado,
+      ema.estado_prenda AS estadoMinimoAceptado,
+
+      (
+        SELECT JSON_ARRAYAGG(c2.categoria)
+        FROM categorias_aceptadas ca2
+        INNER JOIN categorias c2 ON ca2.id_categoria = c2.id_categoria
+        WHERE ca2.id_publicacion_intercambio = pi.Id_publicacion_intercambio
+      ) AS tiposAceptados,
+
+      (
+        SELECT JSON_ARRAYAGG(e.estilo)
+        FROM prendas_estilos pe
+        INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
+        WHERE pe.id_prenda = p.id_prenda
+      ) AS estilos,
+
+      p.id_prenda AS idPrenda,
+      p.nombre,
+      p.imagen,
+      p.privacidad,
+
+      ta.talla AS talle,
+      ep.estado_prenda AS estado,
+      g.genero,
+      ca.id_categoria AS idCategoria,
+      ca.categoria AS prenda,
+      co.color AS color,
+      co.codigo AS codigoColor,
+      te.temporada,
+      oc.ocacion AS ocasion
+
+    FROM publicaciones_intercambio pi
+    INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+    LEFT JOIN colores co ON p.id_color = co.id_color
+    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+    LEFT JOIN generos g ON p.id_genero = g.id_genero
+    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN tallas tb ON pi.talle_buscado = tb.id_talla
+    LEFT JOIN estados_prenda ema ON pi.estado_MA = ema.id_estado_prenda
+
+    WHERE p.Id_usuario = ?
+    ORDER BY pi.Id_publicacion_intercambio DESC
+  `;
+
+  try {
+    const [publicaciones] = await db.query(consulta, [idUsuario]);
+
+    res.json({ publicaciones });
+  } catch (error) {
+    console.error("Error al obtener mis intercambios:", error);
+    res.status(500).json({
+      mensaje: "Error al obtener tus publicaciones de intercambio",
+    });
+  }
+});
+
 router.get("/:id", (req, res) => {
   const { id } = req.params;
 
