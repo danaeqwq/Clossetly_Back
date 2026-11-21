@@ -52,7 +52,7 @@ router.post("/", (req, res) => {
                     const consultaInsertar = `
                         INSERT INTO usuarios
                         (nombre, correo, contraseña, rol, foto_perfil, teléfono, estado_usuario)
-                        VALUES (?, ?, ?, 'Usuario', 'uploads/perfiles/fotoUsuario1', ?, 1)
+                        VALUES (?, ?, ?, 'Usuario', '/uploads/perfiles/fotoUsuario1.png', ?, 1)
                     `;
 
                     return db.query(consultaInsertar, [

@@ -20,7 +20,6 @@ async function verificarPass(passNueva, passHash) {
         passNueva,
         passHash
     );
-
     return coincide;
 }
 
