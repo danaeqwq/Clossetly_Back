@@ -31,9 +31,9 @@ router.get("/mi-cuenta", (req, res) => {
 
             (
                 SELECT COUNT(*)
-                FROM pedidos pe
-                WHERE pe.id_vendedor = u.Id_usuario
-                AND pe.id_estado_pedido = 3
+                FROM publicaciones_compra pc
+                INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
+                WHERE p.Id_usuario = u.Id_usuario
             ) AS ventas,
 
             (
@@ -79,6 +79,7 @@ router.get("/mi-cuenta", (req, res) => {
                     `,
                     [idUsuario]
                 ),
+
                 // 2. RESULTADOS CALCULADOS DEL TEST
                 db.query(
                     `
@@ -96,9 +97,8 @@ router.get("/mi-cuenta", (req, res) => {
                     `,
                     [idUsuario]
                 ),
+
                 // 3. TODAS LAS OPCIONES DISPONIBLES
-                // Preguntas 1, 3 y 5:
-                // prendas, temporadas y calce
                 db.query(
                     `
                         SELECT
@@ -110,8 +110,8 @@ router.get("/mi-cuenta", (req, res) => {
                         ORDER BY o.id_pregunta, o.id_opcion
                     `
                 ),
+
                 // 4. TODOS LOS COLORES DE LA TABLA COLORES
-                // Independientemente de las opciones seleccionadas
                 db.query(
                     `
                         SELECT
@@ -122,6 +122,8 @@ router.get("/mi-cuenta", (req, res) => {
                         ORDER BY id_color
                     `
                 ),
+
+                // 5. TODOS LOS ESTILOS DISPONIBLES
                 db.query(
                     `
                         SELECT
@@ -190,17 +192,14 @@ router.get("/mi-cuenta", (req, res) => {
 
                     if (idPregunta === 1) {
                         catalogos.prendas.push(opcion.opcion);
-
                     } else if (idPregunta === 3) {
                         catalogos.temporadas.push(opcion.opcion);
-
                     } else if (idPregunta === 5) {
                         catalogos.calce.push(opcion.opcion);
                     }
                 });
 
                 // CATÁLOGO DE COLORES
-                // Se obtienen directamente de la tabla colores
                 coloresDisponibles[0].forEach(color => {
                     catalogos.colores.push({
                         id_color: color.id_color,
@@ -223,6 +222,7 @@ router.get("/mi-cuenta", (req, res) => {
                         estilo: estilo.estilo
                     });
                 });
+
                 // RESPUESTA
                 res.status(200).json({
                     usuario: {
@@ -455,7 +455,8 @@ router.delete("/eliminar-cuenta", (req, res) => {
                     OR publicacion_intercambio IN (
                         SELECT Id_publicacion_intercambio
                         FROM publicaciones_intercambio pi
-                        INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+                        INNER JOIN prendas p
+                            ON pi.id_prenda = p.id_prenda
                         WHERE p.Id_usuario = ?
                     )`,
                 [idUsuario, idUsuario]
@@ -470,7 +471,8 @@ router.delete("/eliminar-cuenta", (req, res) => {
                  FROM categorias_aceptadas ca
                  INNER JOIN publicaciones_intercambio pi
                     ON ca.id_publicacion_intercambio = pi.Id_publicacion_intercambio
-                 INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+                 INNER JOIN prendas p
+                    ON pi.id_prenda = p.id_prenda
                  WHERE p.Id_usuario = ?`,
                 [idUsuario]
             );
@@ -482,7 +484,8 @@ router.delete("/eliminar-cuenta", (req, res) => {
             return db.query(
                 `DELETE pi
                  FROM publicaciones_intercambio pi
-                 INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+                 INNER JOIN prendas p
+                    ON pi.id_prenda = p.id_prenda
                  WHERE p.Id_usuario = ?`,
                 [idUsuario]
             );
@@ -494,8 +497,10 @@ router.delete("/eliminar-cuenta", (req, res) => {
             return db.query(
                 `DELETE po
                  FROM prendas_outfits po
-                 LEFT JOIN prendas p ON po.id_prenda = p.id_prenda
-                 LEFT JOIN outfits o ON po.id_outfit = o.id_outfit
+                 LEFT JOIN prendas p
+                    ON po.id_prenda = p.id_prenda
+                 LEFT JOIN outfits o
+                    ON po.id_outfit = o.id_outfit
                  WHERE p.Id_usuario = ?
                     OR o.Id_usuario = ?`,
                 [idUsuario, idUsuario]
@@ -508,7 +513,8 @@ router.delete("/eliminar-cuenta", (req, res) => {
             return db.query(
                 `DELETE oe
                  FROM outfit_estilo oe
-                 INNER JOIN outfits o ON oe.id_outfit = o.id_outfit
+                 INNER JOIN outfits o
+                    ON oe.id_outfit = o.id_outfit
                  WHERE o.Id_usuario = ?`,
                 [idUsuario]
             );
@@ -530,7 +536,8 @@ router.delete("/eliminar-cuenta", (req, res) => {
             return db.query(
                 `DELETE ps
                  FROM prendas_estilos ps
-                 INNER JOIN prendas p ON ps.id_prenda = p.id_prenda
+                 INNER JOIN prendas p
+                    ON ps.id_prenda = p.id_prenda
                  WHERE p.Id_usuario = ?`,
                 [idUsuario]
             );
@@ -542,14 +549,15 @@ router.delete("/eliminar-cuenta", (req, res) => {
             return db.query(
                 `DELETE ci
                  FROM carrito_items ci
+                 LEFT JOIN pedidos pe
+                    ON ci.Id_pedido = pe.Id_pedido
                  LEFT JOIN publicaciones_compra pc
                     ON ci.id_publicacion_compra = pc.id_publicacion_compra
-                 LEFT JOIN prendas p ON pc.id_prenda = p.id_prenda
-                 LEFT JOIN pedidos pe ON ci.Id_pedido = pe.Id_pedido
-                 WHERE p.Id_usuario = ?
-                    OR pe.id_comprador = ?
-                    OR pe.id_vendedor = ?`,
-                [idUsuario, idUsuario, idUsuario]
+                 LEFT JOIN prendas p
+                    ON pc.id_prenda = p.id_prenda
+                 WHERE pe.id_comprador = ?
+                    OR p.Id_usuario = ?`,
+                [idUsuario, idUsuario]
             );
         })
         .then(resultado => {
@@ -557,9 +565,18 @@ router.delete("/eliminar-cuenta", (req, res) => {
 
             // 9. Eliminar pedidos
             return db.query(
-                `DELETE FROM pedidos
-                 WHERE id_comprador = ?
-                    OR id_vendedor = ?`,
+                `DELETE pe
+                 FROM pedidos pe
+                 WHERE pe.id_comprador = ?
+                    OR pe.Id_pedido IN (
+                        SELECT ci.Id_pedido
+                        FROM carrito_items ci
+                        INNER JOIN publicaciones_compra pc
+                            ON ci.id_publicacion_compra = pc.id_publicacion_compra
+                        INNER JOIN prendas p
+                            ON pc.id_prenda = p.id_prenda
+                        WHERE p.Id_usuario = ?
+                    )`,
                 [idUsuario, idUsuario]
             );
         })
@@ -570,7 +587,8 @@ router.delete("/eliminar-cuenta", (req, res) => {
             return db.query(
                 `DELETE pc
                  FROM publicaciones_compra pc
-                 INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
+                 INNER JOIN prendas p
+                    ON pc.id_prenda = p.id_prenda
                  WHERE p.Id_usuario = ?`,
                 [idUsuario]
             );
