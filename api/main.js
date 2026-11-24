@@ -13,6 +13,8 @@ const outfitsRouter = require("./outfits/outfits_main");
 const usuarioRouter = require("./usuarios/usuarios_main");
 const preguntasRouter = require("./testEstilo/preguntas/preguntas_main");
 const resultadosRouter = require("./testEstilo/resultados/resultados_main");
+const propuestasRouter = require("./propuestas/propuestas_main");
+const notificacionesRouter = require("./notificaciones/notificaciones_main");
 
 const loginRouter = require("./auth/login");
 const registroRouter = require("./auth/registro");
@@ -33,6 +35,8 @@ router.use("/pedido-items", middlewareSeg, pedidoItemRouter);
 router.use("/prendas", middlewareSeg, prendasRouter);
 router.use("/outfits", outfitsRouter);
 router.use("/usuarios", middlewareSeg, usuarioRouter);
+router.use("/propuestas", middlewareSeg, propuestasRouter);
+router.use("/notificaciones", middlewareSeg, notificacionesRouter);
 // RUTAS DE ADMINISTRACIÓN
 router.use("/admin", middlewareSeg, middlewareRol("Admin"));
 
