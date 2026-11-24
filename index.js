@@ -4,6 +4,7 @@ const cors = require("cors");
 const { PORT } = process.env;
 const apiRouter = require("./api/main");
 const fileUpload = require("express-fileupload");
+const iniciarDesbloqueoAutomatico = require("./tareas/desbloqueoAutomatico");
 const app = express();
 
 app.use("/uploads", express.static("uploads"));
@@ -22,4 +23,5 @@ app.listen(PORT || 3000, (error) => {
         process.exit(1);
     }
     console.log(`Clossetly API funcionando en el puerto ${PORT || 3000}`);
+    iniciarDesbloqueoAutomatico();
 });
