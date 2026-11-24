@@ -185,12 +185,6 @@ router.post("/:id/bloquear", async (req, res) => {
 // ==========================================
 // EXPULSAR USUARIO PERMANENTEMENTE
 // ==========================================
-
-// ==========================================
-// ELIMINAR USUARIO DEFINITIVAMENTE
-// ==========================================
-
-
 router.delete("/:id/expulsar", async (req, res) => {
     let conexion;
 

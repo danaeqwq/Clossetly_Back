@@ -2,7 +2,7 @@ const router = require("express").Router();
 const db = require("../../config/db");
 const middlewareSeg = require("../middlewares/middlewareSeg");
 
-router.get("/", middlewareSeg, (req, res) => {
+router.get("/", (req, res) => {
   const idUsuario = req.user.id;
 
   const consulta = `
@@ -73,7 +73,7 @@ router.get("/", middlewareSeg, (req, res) => {
     });
 });
 
-router.post("/", middlewareSeg, async (req, res) => {
+router.post("/", async (req, res) => {
   const idUsuario = req.user.id;
 
   try {
@@ -190,7 +190,7 @@ router.post("/", middlewareSeg, async (req, res) => {
   }
 });
 
-router.put("/:id", middlewareSeg, async (req, res) => {
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const idUsuario = req.user.id;
 
@@ -321,7 +321,7 @@ router.put("/:id", middlewareSeg, async (req, res) => {
   }
 });
 
-router.delete("/:id", middlewareSeg, (req, res) => {
+router.delete("/:id", (req, res) => {
   const { id } = req.params;
   const idUsuario = req.user.id;
 
