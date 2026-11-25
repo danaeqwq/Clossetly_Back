@@ -35,9 +35,43 @@ router.get("/", (req, res) => {
 
     WHERE p.id_usuario = ?
 
-    GROUP BY p.id_prenda
-    ORDER BY p.id_prenda DESC
-`;
+        LEFT JOIN categorias ca
+            ON p.id_categoria = ca.id_categoria
+
+        LEFT JOIN tallas ta
+            ON p.id_talla = ta.id_talla
+
+        LEFT JOIN temporadas te
+            ON p.id_temporada = te.id_temporada
+
+        LEFT JOIN estados_prenda ep
+            ON p.id_estado_prenda = ep.id_estado_prenda
+
+        LEFT JOIN ocaciones oc
+            ON p.id_ocacion = oc.id_ocacion
+
+        LEFT JOIN generos g
+            ON p.id_genero = g.id_genero
+
+        LEFT JOIN colores co
+            ON p.id_color = co.id_color
+
+        WHERE p.Id_usuario = ?
+
+        AND NOT EXISTS (
+    SELECT 1
+    FROM publicaciones_compra pc
+    WHERE pc.id_prenda = p.id_prenda
+)
+    AND NOT EXISTS (
+    SELECT 1
+    FROM publicaciones_intercambio pi
+    WHERE pi.id_prenda = p.id_prenda
+)
+
+        ORDER BY p.id_prenda DESC
+        
+    `;
 
   db.query(consulta, [idUsuario])
     .then(([prendas]) => {
@@ -50,6 +84,84 @@ router.get("/", (req, res) => {
         mensaje: "Error al obtener las prendas",
       });
     });
+});
+
+// PRENDAS DISPONIBLES PARA PROPONER INTERCAMBIO
+router.get("/disponibles-intercambio", async (req, res) => {
+  const idUsuario = req.user.id;
+
+  try {
+    const consulta = `
+      SELECT
+        p.id_prenda AS id,
+        p.nombre,
+        p.imagen,
+        p.privacidad,
+
+        ca.id_categoria AS idCategoria,
+        ca.categoria AS categoria,
+
+        ta.talla AS talle,
+        te.temporada,
+        ep.estado_prenda AS estado,
+        oc.ocacion AS ocasion,
+        g.genero,
+
+        co.color AS color,
+        co.codigo AS codigoColor,
+
+        (
+          SELECT JSON_ARRAYAGG(e.estilo)
+          FROM prendas_estilos pe
+          INNER JOIN estilos e
+            ON pe.id_estilo = e.id_estilo
+          WHERE pe.id_prenda = p.id_prenda
+        ) AS estilos
+
+      FROM prendas p
+
+      LEFT JOIN categorias ca
+        ON p.id_categoria = ca.id_categoria
+
+      LEFT JOIN tallas ta
+        ON p.id_talla = ta.id_talla
+
+      LEFT JOIN temporadas te
+        ON p.id_temporada = te.id_temporada
+
+      LEFT JOIN estados_prenda ep
+        ON p.id_estado_prenda = ep.id_estado_prenda
+
+      LEFT JOIN ocaciones oc
+        ON p.id_ocacion = oc.id_ocacion
+
+      LEFT JOIN generos g
+        ON p.id_genero = g.id_genero
+
+      LEFT JOIN colores co
+        ON p.id_color = co.id_color
+
+      WHERE p.Id_usuario = ?
+
+      AND NOT EXISTS (
+        SELECT 1
+        FROM publicaciones_compra pc
+        WHERE pc.id_prenda = p.id_prenda
+      )
+
+      ORDER BY p.id_prenda DESC
+    `;
+
+    const [prendas] = await db.query(consulta, [idUsuario]);
+
+    res.json({ prendas });
+  } catch (error) {
+    console.error("Error al obtener prendas para intercambio:", error);
+
+    res.status(500).json({
+      mensaje: "Error al obtener prendas disponibles para intercambio",
+    });
+  }
 });
 
 router.post("/", async (req, res) => {

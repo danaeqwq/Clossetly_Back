@@ -2,6 +2,8 @@ const router = require("express").Router();
 const db = require("../../config/db");
 
 router.get("/", (req, res) => {
+  const idUsuario = req.user.id;
+
   const {
     categoria,
     talle,
@@ -191,13 +193,14 @@ router.get("/", (req, res) => {
             ON pi.estado_MA = ema.id_estado_prenda
 
         WHERE p.privacidad = 1
-        ${where}
+AND p.Id_usuario <> ?
+${where}
 
         ORDER BY pi.Id_publicacion_intercambio DESC
     `;
 
   // EJECUTAR CONSULTA
-  db.query(consulta, valores)
+  db.query(consulta, [idUsuario, ...valores])
     .then(([publicaciones]) => {
       res.json({ publicaciones });
     })
