@@ -19,12 +19,14 @@ const gestionUsuariosRouter = require ("./usuarios/Gestion_usuarios_main")
 
 const loginRouter = require("./auth/login");
 const registroRouter = require("./auth/registro");
+const recuperarRouter = require("./auth/recuperar");
 
 // RUTAS PÚBLICAS
 router.use("/login", loginRouter);
 router.use("/registro", registroRouter);
 router.use("/test-estilo/preguntas", preguntasRouter);
 router.use("/test-estilo/resultados", resultadosRouter);
+router.use("/olvidar-contraseña", recuperarRouter);
 
 // RUTAS PROTEGIDAS: USUARIOS CON SESIÓN
 router.use("/publicaciones/compra", middlewareSeg, compraRouter);
