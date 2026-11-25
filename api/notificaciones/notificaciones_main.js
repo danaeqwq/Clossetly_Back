@@ -1,21 +1,32 @@
 const router = require("express").Router();
 const db = require("../../config/db");
 
-// OBTENER NOTIFICACIONES
 router.get("/", async (req, res) => {
   try {
     const id_usuario = req.user.id;
 
     const consulta = `
-            SELECT
-                Id_notificacion,
-                mensaje,
-                fecha,
-                visto
-            FROM \`notificaciónes\`
-            WHERE Id_usuario = ?
-            ORDER BY fecha DESC
-        `;
+      SELECT
+        n.Id_notificacion,
+        n.Id_usuario,
+        n.Id_usuario_origen,
+        n.mensaje,
+        n.mensaje AS detalle,
+        NULL AS accion,
+        DATE_FORMAT(
+          n.fecha,
+          '%Y-%m-%dT%H:%i:%sZ'
+        ) AS fecha,
+        n.visto,
+        u.nombre AS usuario,
+        u.foto_perfil,
+        u.\`teléfono\` AS telefono
+      FROM \`notificaciónes\` n
+      LEFT JOIN usuarios u
+        ON n.Id_usuario_origen = u.Id_usuario
+      WHERE n.Id_usuario = ?
+      ORDER BY n.fecha DESC
+    `;
 
     const [notificaciones] = await db.query(consulta, [id_usuario]);
 
@@ -29,21 +40,32 @@ router.get("/", async (req, res) => {
   }
 });
 
-// OBTENER DETALLE DE NOTIFICACIÓN
 router.get("/:id", async (req, res) => {
   try {
     const id_usuario = req.user.id;
     const { id } = req.params;
 
     const consulta = `
-            SELECT
-                Id_notificacion,
-                mensaje,
-                fecha,
-                visto
-            FROM \`notificaciónes\`
-            WHERE Id_notificacion = ?
-        `;
+      SELECT
+        n.Id_notificacion,
+        n.Id_usuario,
+        n.Id_usuario_origen,
+        n.mensaje,
+        n.mensaje AS detalle,
+        NULL AS accion,
+        DATE_FORMAT(
+          n.fecha,
+          '%Y-%m-%dT%H:%i:%sZ'
+        ) AS fecha,
+        n.visto,
+        u.nombre AS usuario,
+        u.foto_perfil,
+        u.\`teléfono\` AS telefono
+      FROM \`notificaciónes\` n
+      LEFT JOIN usuarios u
+        ON n.Id_usuario_origen = u.Id_usuario
+      WHERE n.Id_notificacion = ?
+    `;
 
     const [notificaciones] = await db.query(consulta, [id]);
 
@@ -76,10 +98,12 @@ router.patch("/:id/leida", async (req, res) => {
     const { id } = req.params;
 
     const consulta = `
-            SELECT Id_notificacion, Id_usuario
-            FROM \`notificaciónes\`
-            WHERE Id_notificacion = ?
-        `;
+      SELECT
+        Id_notificacion,
+        Id_usuario
+      FROM \`notificaciónes\`
+      WHERE Id_notificacion = ?
+    `;
 
     const [notificaciones] = await db.query(consulta, [id]);
 
@@ -96,10 +120,10 @@ router.patch("/:id/leida", async (req, res) => {
     }
 
     const consultaActualizar = `
-            UPDATE \`notificaciónes\`
-            SET visto = 1
-            WHERE Id_notificacion = ?
-        `;
+      UPDATE \`notificaciónes\`
+      SET visto = 1
+      WHERE Id_notificacion = ?
+    `;
 
     await db.query(consultaActualizar, [id]);
 

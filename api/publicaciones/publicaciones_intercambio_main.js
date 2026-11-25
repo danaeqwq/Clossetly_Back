@@ -1,8 +1,9 @@
 const router = require("express").Router();
 const db = require("../../config/db");
-const middlewareSeg = require("../middlewares/middlewareSeg");
 
 router.get("/", (req, res) => {
+  const idUsuario = req.user.id;
+
   const {
     categoria,
     talle,
@@ -192,13 +193,14 @@ router.get("/", (req, res) => {
             ON pi.estado_MA = ema.id_estado_prenda
 
         WHERE p.privacidad = 1
-        ${where}
+AND p.Id_usuario <> ?
+${where}
 
         ORDER BY pi.Id_publicacion_intercambio DESC
     `;
 
   // EJECUTAR CONSULTA
-  db.query(consulta, valores)
+  db.query(consulta, [idUsuario, ...valores])
     .then(([publicaciones]) => {
       res.json({ publicaciones });
     })
@@ -211,7 +213,7 @@ router.get("/", (req, res) => {
     });
 });
 
-router.get("/mis", middlewareSeg, async (req, res) => {
+router.get("/mis", async (req, res) => {
   const idUsuario = req.user.id;
 
   try {
@@ -386,7 +388,7 @@ router.get("/:id", (req, res) => {
     });
 });
 
-router.post("/", middlewareSeg, async (req, res) => {
+router.post("/", async (req, res) => {
   const idUsuario = req.user.id;
 
   try {
@@ -469,7 +471,7 @@ router.post("/", middlewareSeg, async (req, res) => {
   }
 });
 
-router.put("/:id", middlewareSeg, async (req, res) => {
+router.put("/:id", async (req, res) => {
   const idUsuario = req.user.id;
   const idPublicacion = req.params.id;
 
@@ -552,7 +554,7 @@ router.put("/:id", middlewareSeg, async (req, res) => {
   }
 });
 
-router.delete("/:id", middlewareSeg, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   const idUsuario = req.user.id;
   const idPublicacion = req.params.id;
 

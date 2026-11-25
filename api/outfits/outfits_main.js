@@ -1,9 +1,8 @@
 const router = require("express").Router();
 const db = require("../../config/db");
-const middlewareSeg = require("../middlewares/middlewareSeg");
 
 // OBTENER OUTFITS
-router.get("/", middlewareSeg, async (req, res) => {
+router.get("/", async (req, res) => {
   const idUsuario = req.user.id;
 
   try {
@@ -59,7 +58,7 @@ router.get("/", middlewareSeg, async (req, res) => {
 });
 
 // CREAR OUTFIT
-router.post("/", middlewareSeg, async (req, res) => {
+router.post("/", async (req, res) => {
   const idUsuario = req.user.id;
 
   try {
@@ -172,7 +171,7 @@ router.post("/", middlewareSeg, async (req, res) => {
 });
 
 // MODIFICAR OUTFIT
-router.put("/:id", middlewareSeg, async (req, res) => {
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const idUsuario = req.user.id;
 
@@ -291,7 +290,7 @@ router.put("/:id", middlewareSeg, async (req, res) => {
 });
 
 // ELIMINAR OUTFIT
-router.delete("/:id", middlewareSeg, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   const idUsuario = req.user.id;
 

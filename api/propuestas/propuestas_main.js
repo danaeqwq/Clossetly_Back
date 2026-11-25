@@ -1,36 +1,88 @@
 const router = require("express").Router();
 const db = require("../../config/db");
 
-// OBTENER PROPUESTAS RECIBIDAS
 router.get("/recibidas", async (req, res) => {
   try {
     const id_usuario = req.user.id;
 
     const consulta = `
-            SELECT
-                pr.id_propuesta,
-                pr.fecha,
-                pr.mensaje,
-                ep.estado_propuesta,
-                u.nombre AS usuario,
-                po.nombre AS prenda_publicada,
-                po.imagen AS imagen_publicada,
-                pf.nombre AS prenda_ofrecida,
-                pf.imagen AS imagen_ofrecida
-            FROM propuestas pr
-            INNER JOIN publicaciones_intercambio pi
-                ON pr.publicacion_intercambio = pi.Id_publicacion_intercambio
-            INNER JOIN prendas po
-                ON pi.id_prenda = po.id_prenda
-            INNER JOIN prendas pf
-                ON pr.prenda_ofrecida = pf.id_prenda
-            INNER JOIN usuarios u
-                ON pr.id_usuario = u.Id_usuario
-            INNER JOIN estados_propuestas ep
-                ON pr.estado_propuesta = ep.Id_estado_propuesta
-            WHERE po.Id_usuario = ?
-            ORDER BY pr.fecha DESC
-        `;
+      SELECT
+        pr.id_propuesta,
+        pr.publicacion_intercambio,
+        pr.fecha,
+        pr.mensaje,
+        ep.estado_propuesta,
+        u.nombre AS usuario,
+
+        -- Prenda publicada para intercambio
+        po.nombre AS prenda_publicada,
+        po.imagen AS imagen_publicada,
+
+        -- Prenda ofrecida
+        pf.id_prenda AS id_prenda_ofrecida,
+        pf.nombre AS prenda_ofrecida,
+        pf.imagen AS imagen_ofrecida,
+        pf.privacidad AS privacidad_ofrecida,
+
+        ca.categoria AS categoria_ofrecida,
+        ta.talla AS talle_ofrecido,
+        te.temporada AS temporada_ofrecida,
+        epr.estado_prenda AS estado_ofrecido,
+        oc.ocacion AS ocasion_ofrecida,
+        g.genero AS genero_ofrecido,
+        co.color AS color_ofrecido,
+        co.codigo AS codigo_color_ofrecido,
+
+        (
+          SELECT JSON_ARRAYAGG(e.estilo)
+          FROM prendas_estilos pe
+          INNER JOIN estilos e
+            ON pe.id_estilo = e.id_estilo
+          WHERE pe.id_prenda = pf.id_prenda
+        ) AS estilos_ofrecidos
+
+      FROM propuestas pr
+
+      INNER JOIN publicaciones_intercambio pi
+        ON pr.publicacion_intercambio = pi.Id_publicacion_intercambio
+
+      INNER JOIN prendas po
+        ON pi.id_prenda = po.id_prenda
+
+      INNER JOIN prendas pf
+        ON pr.prenda_ofrecida = pf.id_prenda
+
+      INNER JOIN usuarios u
+        ON pr.id_usuario = u.Id_usuario
+
+      INNER JOIN estados_propuestas ep
+        ON pr.estado_propuesta = ep.Id_estado_propuesta
+
+      LEFT JOIN categorias ca
+        ON pf.id_categoria = ca.id_categoria
+
+      LEFT JOIN tallas ta
+        ON pf.id_talla = ta.id_talla
+
+      LEFT JOIN temporadas te
+        ON pf.id_temporada = te.id_temporada
+
+      LEFT JOIN estados_prenda epr
+        ON pf.id_estado_prenda = epr.id_estado_prenda
+
+      LEFT JOIN ocaciones oc
+        ON pf.id_ocacion = oc.id_ocacion
+
+      LEFT JOIN generos g
+        ON pf.id_genero = g.id_genero
+
+      LEFT JOIN colores co
+        ON pf.id_color = co.id_color
+
+      WHERE po.Id_usuario = ?
+
+      ORDER BY pr.fecha DESC
+    `;
 
     const [propuestas] = await db.query(consulta, [id_usuario]);
 
@@ -62,6 +114,8 @@ router.get("/:id", async (req, res) => {
                 po.imagen AS imagen_publicada,
                 pf.nombre AS prenda_ofrecida,
                 pf.imagen AS imagen_ofrecida
+                pr.id_usuario,
+                pr.publicacion_intercambio,
             FROM propuestas pr
             INNER JOIN publicaciones_intercambio pi
                 ON pr.publicacion_intercambio = pi.Id_publicacion_intercambio
@@ -137,6 +191,7 @@ router.post("/", async (req, res) => {
 
     const publicacion = publicaciones[0];
 
+    // Evitar propuestas en publicaciones propias
     if (Number(publicacion.Id_usuario) === Number(id_usuario)) {
       return res.status(400).json({
         mensaje: "No podés proponer un intercambio en tu propia publicación",
@@ -179,10 +234,39 @@ router.post("/", async (req, res) => {
       });
     }
 
+    // Verificar si la prenda ya está en una propuesta pendiente o confirmada
+    const consultaPrendaExistente = `
+            SELECT pr.id_propuesta
+            FROM propuestas pr
+            INNER JOIN estados_propuestas ep
+                ON pr.estado_propuesta = ep.Id_estado_propuesta
+            WHERE pr.prenda_ofrecida = ?
+            AND ep.estado_propuesta IN ('Pendiente', 'Confirmado')
+        `;
+
+    const [prendasExistentes] = await db.query(consultaPrendaExistente, [
+      prenda_ofrecida,
+    ]);
+
+    if (prendasExistentes.length > 0) {
+      return res.status(409).json({
+        mensaje:
+          "Esta prenda ya está incluida en otra propuesta pendiente o confirmada",
+      });
+    }
+
+    console.log("COMPROBACIÓN DE PROPUESTA:", {
+      tallePrenda: prenda.id_talla,
+      talleBuscado: publicacion.talle_buscado,
+      estadoPrenda: prenda.id_estado_prenda,
+      estadoAceptado: publicacion.estado_MA,
+    });
+
     // Verificar talle y estado solicitado
     if (
       Number(prenda.id_talla) !== Number(publicacion.talle_buscado) ||
-      Number(prenda.id_estado_prenda) > Number(publicacion.estado_MA)
+      (publicacion.estado_MA !== null &&
+        Number(prenda.id_estado_prenda) > Number(publicacion.estado_MA))
     ) {
       return res.status(409).json({
         mensaje: "La prenda no cumple con el talle o estado solicitado",
@@ -223,7 +307,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Verificar si ya existe una propuesta pendiente
+    // Verificar si ya existe una propuesta pendiente para esta publicación
     const consultaExistente = `
             SELECT pr.id_propuesta
             FROM propuestas pr
@@ -264,12 +348,13 @@ router.post("/", async (req, res) => {
     // Crear notificación para el dueño de la publicación
     const consultaNotificacion = `
             INSERT INTO \`notificaciónes\`
-            (Id_usuario, mensaje, fecha, visto)
-            VALUES (?, ?, NOW(), 0)
+            (Id_usuario, Id_usuario_origen, mensaje, fecha, visto)
+            VALUES (?, ?, ?, UTC_TIMESTAMP(), 0)
         `;
 
     await db.query(consultaNotificacion, [
       publicacion.Id_usuario,
+      id_usuario,
       "Recibiste una nueva propuesta de intercambio",
     ]);
 
@@ -278,6 +363,7 @@ router.post("/", async (req, res) => {
     });
   } catch (error) {
     console.error("Error al enviar propuesta:", error);
+    console.log("MENSAJE DEL BACKEND:", error.response?.data);
 
     res.status(500).json({
       mensaje: "Error al enviar la propuesta",
@@ -298,19 +384,25 @@ router.patch("/:id/estado", async (req, res) => {
       });
     }
 
+    // OBTENER DATOS DE LA PROPUESTA Y DE AMBOS USUARIOS
     const consultaPropuesta = `
-            SELECT
-                pr.id_propuesta,
-                pr.id_usuario,
-                pr.estado_propuesta,
-                po.Id_usuario AS id_receptor
-            FROM propuestas pr
-            INNER JOIN publicaciones_intercambio pi
-                ON pr.publicacion_intercambio = pi.Id_publicacion_intercambio
-            INNER JOIN prendas po
-                ON pi.id_prenda = po.id_prenda
-            WHERE pr.id_propuesta = ?
-        `;
+      SELECT
+        pr.id_propuesta,
+        pr.id_usuario,
+        pr.publicacion_intercambio,
+        pr.estado_propuesta,
+        po.Id_usuario AS id_receptor,
+        u_receptor.nombre AS nombre_receptor,
+        u_receptor.\`teléfono\` AS telefono_receptor
+      FROM propuestas pr
+      INNER JOIN publicaciones_intercambio pi
+        ON pr.publicacion_intercambio = pi.Id_publicacion_intercambio
+      INNER JOIN prendas po
+        ON pi.id_prenda = po.id_prenda
+      INNER JOIN usuarios u_receptor
+        ON po.Id_usuario = u_receptor.Id_usuario
+      WHERE pr.id_propuesta = ?
+    `;
 
     const [propuestas] = await db.query(consultaPropuesta, [id]);
 
@@ -322,18 +414,19 @@ router.patch("/:id/estado", async (req, res) => {
 
     const propuesta = propuestas[0];
 
+    // VERIFICAR QUE SEA EL DUEÑO DE LA PUBLICACIÓN
     if (Number(propuesta.id_receptor) !== Number(id_usuario)) {
       return res.status(403).json({
         mensaje: "No tenés permiso para responder esta propuesta",
       });
     }
 
-    // Verificar que la propuesta siga pendiente
+    // VERIFICAR QUE SIGA PENDIENTE
     const consultaPendiente = `
-            SELECT Id_estado_propuesta
-            FROM estados_propuestas
-            WHERE estado_propuesta = 'Pendiente'
-        `;
+      SELECT Id_estado_propuesta
+      FROM estados_propuestas
+      WHERE estado_propuesta = 'Pendiente'
+    `;
 
     const [pendientes] = await db.query(consultaPendiente);
 
@@ -347,14 +440,14 @@ router.patch("/:id/estado", async (req, res) => {
       });
     }
 
-    // Obtener nuevo estado
+    // OBTENER NUEVO ESTADO
     const estado = decision === "aceptar" ? "Confirmado" : "Rechazado";
 
     const consultaEstado = `
-            SELECT Id_estado_propuesta
-            FROM estados_propuestas
-            WHERE estado_propuesta = ?
-        `;
+      SELECT Id_estado_propuesta
+      FROM estados_propuestas
+      WHERE estado_propuesta = ?
+    `;
 
     const [estados] = await db.query(consultaEstado, [estado]);
 
@@ -364,34 +457,43 @@ router.patch("/:id/estado", async (req, res) => {
       });
     }
 
-    // Actualizar estado de la propuesta
+    // ACTUALIZAR ESTADO DE LA PROPUESTA
     const consultaActualizar = `
-            UPDATE propuestas
-            SET estado_propuesta = ?
-            WHERE id_propuesta = ?
-        `;
+      UPDATE propuestas
+      SET estado_propuesta = ?
+      WHERE id_propuesta = ?
+    `;
 
     await db.query(consultaActualizar, [estados[0].Id_estado_propuesta, id]);
 
-    // Crear notificación para quien envió la propuesta
+    // CREAR NOTIFICACIÓN PARA QUIEN ENVIÓ LA PROPUESTA
     const mensaje =
       decision === "aceptar"
-        ? "Tu propuesta de intercambio fue aceptada"
-        : "Tu propuesta de intercambio fue rechazada";
+        ? "¡Tu propuesta de intercambio fue aceptada! Ahora podés comunicarte por WhatsApp para coordinar el intercambio."
+        : "Tu propuesta de intercambio fue rechazada.";
 
     const consultaNotificacion = `
-            INSERT INTO \`notificaciónes\`
-            (Id_usuario, mensaje, fecha, visto)
-            VALUES (?, ?, NOW(), 0)
-        `;
+      INSERT INTO \`notificaciónes\`
+      (Id_usuario, Id_usuario_origen, mensaje, fecha, visto)
+      VALUES (?, ?, ?, UTC_TIMESTAMP(), 0)
+    `;
 
-    await db.query(consultaNotificacion, [propuesta.id_usuario, mensaje]);
+    await db.query(consultaNotificacion, [
+      propuesta.id_usuario,
+      id_usuario,
+      mensaje,
+    ]);
 
+    // RESPUESTA
     res.json({
       mensaje:
         decision === "aceptar"
           ? "Propuesta aceptada correctamente"
           : "Propuesta rechazada correctamente",
+      decision,
+      telefono: decision === "aceptar" ? propuesta.telefono_receptor : null,
+      nombre: decision === "aceptar" ? propuesta.nombre_receptor : null,
+      id_propuesta: propuesta.id_propuesta,
     });
   } catch (error) {
     console.error("Error al responder propuesta:", error);

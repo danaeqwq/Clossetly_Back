@@ -1,3 +1,4 @@
+
 require("dotenv").config();
 
 const mysql = require("mysql2/promise");
@@ -11,7 +12,13 @@ const db = mysql.createPool({
     port: DB_PORT,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    timezone: "-03:00",
+    dateStrings: true,
+});
+
+db.on("connection", (conexion) => {
+    conexion.query("SET time_zone = '-03:00'");
 });
 
 module.exports = db;
