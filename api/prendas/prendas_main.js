@@ -1,64 +1,43 @@
 const router = require("express").Router();
 const db = require("../../config/db");
-const middlewareSeg = require("../middlewares/middlewareSeg");
 
 router.get("/", (req, res) => {
   const idUsuario = req.user.id;
-
   const consulta = `
-        SELECT
-            p.id_prenda AS id,
-            p.nombre,
-            p.imagen,
-            p.privacidad,
+    SELECT
+        p.id_prenda AS id,
+        p.nombre,
+        p.imagen,
+        p.privacidad,
 
-            ca.id_categoria AS idCategoria,
-            ca.categoria AS categoria,
+        ca.categoria,
+        ta.talla AS talle,
+        te.temporada,
+        ep.estado_prenda AS estado,
+        oc.ocacion AS ocasion,
+        g.genero,
 
-            ta.talla AS talle,
-            te.temporada,
-            ep.estado_prenda AS estado,
-            oc.ocacion AS ocasion,
-            g.genero,
+        co.color,
+        co.codigo AS codigoColor,
+        JSON_ARRAYAGG(e.estilo) AS estilos
 
-            co.color AS color,
-            co.codigo AS codigoColor,
+    FROM prendas p
 
-            (
-                SELECT JSON_ARRAYAGG(e.estilo)
-                FROM prendas_estilos pe
-                INNER JOIN estilos e
-                    ON pe.id_estilo = e.id_estilo
-                WHERE pe.id_prenda = p.id_prenda
-            ) AS estilos
+    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN generos g ON p.id_genero = g.id_genero
+    LEFT JOIN colores co ON p.id_color = co.id_color
+    LEFT JOIN prendas_estilos pe ON p.id_prenda = pe.id_prenda
+    LEFT JOIN estilos e ON pe.id_estilo = e.id_estilo
 
-        FROM prendas p
+    WHERE p.id_usuario = ?
 
-        LEFT JOIN categorias ca
-            ON p.id_categoria = ca.id_categoria
-
-        LEFT JOIN tallas ta
-            ON p.id_talla = ta.id_talla
-
-        LEFT JOIN temporadas te
-            ON p.id_temporada = te.id_temporada
-
-        LEFT JOIN estados_prenda ep
-            ON p.id_estado_prenda = ep.id_estado_prenda
-
-        LEFT JOIN ocaciones oc
-            ON p.id_ocacion = oc.id_ocacion
-
-        LEFT JOIN generos g
-            ON p.id_genero = g.id_genero
-
-        LEFT JOIN colores co
-            ON p.id_color = co.id_color
-
-        WHERE p.Id_usuario = ?
-
-        ORDER BY p.id_prenda DESC
-    `;
+    GROUP BY p.id_prenda
+    ORDER BY p.id_prenda DESC
+`;
 
   db.query(consulta, [idUsuario])
     .then(([prendas]) => {
@@ -190,135 +169,140 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.put("/:id", async (req, res) => {
-  const { id } = req.params;
-  const idUsuario = req.user.id;
-
-  try {
+router.post("/", (req, res) => {
+    const idUsuario = req.user.id;
     const {
-      nombre,
-      categoria,
-      talle,
-      temporada,
-      ocasion,
-      genero,
-      estado,
-      privacidad,
-      colores = [],
-      estilos = [],
+        nombre,
+        categoria,
+        talle,
+        temporada,
+        ocasion,
+        genero,
+        estado,
+        privacidad,
+        colores = [],
+        estilos = [],
     } = req.body;
 
     // PROCESAR COLORES Y ESTILOS
     const listaColores = Array.isArray(colores)
-      ? colores
-      : typeof colores === "string" && colores
-        ? JSON.parse(colores)
-        : [];
+        ? colores
+        : typeof colores === "string" && colores
+            ? JSON.parse(colores)
+            : [];
 
     const listaEstilos = Array.isArray(estilos)
-      ? estilos
-      : typeof estilos === "string" && estilos
-        ? JSON.parse(estilos)
-        : [];
+        ? estilos
+        : typeof estilos === "string" && estilos
+            ? JSON.parse(estilos)
+            : [];
 
-    // BUSCAR IMAGEN NUEVA
+    // GUARDAR IMAGEN
     let rutaImagen = null;
     const archivo = req.files?.imagen;
 
+    let promesaImagen;
+
     if (archivo) {
-      const nombreArchivo = `${Date.now()}-${archivo.name}`;
-      const carpeta = "uploads/prendas/";
+        const nombreArchivo = `${Date.now()}-${archivo.name}`;
+        const carpeta = "uploads/prendas/";
 
-      await archivo.mv(carpeta + nombreArchivo);
-
-      rutaImagen = `/uploads/prendas/${nombreArchivo}`;
+        promesaImagen = archivo.mv(carpeta + nombreArchivo)
+            .then(() => {
+                rutaImagen = `/uploads/prendas/${nombreArchivo}`;
+            });
+    } else {
+        promesaImagen = Promise.resolve();
     }
 
-    const consulta = `
-      UPDATE prendas
-      SET
-        nombre = ?,
-        id_categoria = (
-          SELECT id_categoria FROM categorias
-          WHERE categoria = ?
-        ),
-        id_talla = (
-          SELECT id_talla FROM tallas
-          WHERE talla = ?
-        ),
-        id_temporada = (
-          SELECT id_temporada FROM temporadas
-          WHERE temporada = ?
-        ),
-        id_ocacion = (
-          SELECT id_ocacion FROM ocaciones
-          WHERE ocacion = ?
-        ),
-        id_genero = (
-          SELECT id_genero FROM generos
-          WHERE genero = ?
-        ),
-        id_estado_prenda = (
-          SELECT id_estado_prenda FROM estados_prenda
-          WHERE estado_prenda = ?
-        ),
-        id_color = (
-          SELECT id_color FROM colores
-          WHERE color = ?
-        ),
-        privacidad = ?,
-        imagen = COALESCE(?, imagen)
-      WHERE id_prenda = ?
-      AND Id_usuario = ?
-    `;
+    promesaImagen
+        .then(() => {
 
-    const valores = [
-      nombre,
-      categoria,
-      talle,
-      temporada,
-      ocasion,
-      genero,
-      estado,
-      listaColores[0],
-      privacidad,
-      rutaImagen,
-      id,
-      idUsuario,
-    ];
+            // INSERTAR PRENDA
+            const consulta = `
+                INSERT INTO prendas (
+                    Id_usuario,
+                    id_genero,
+                    id_temporada,
+                    id_color,
+                    nombre,
+                    privacidad,
+                    id_estado_prenda,
+                    id_talla,
+                    imagen,
+                    id_ocacion,
+                    id_categoria
+                )
+                VALUES (
+                    ?,
+                    (SELECT id_genero FROM generos WHERE genero = ?),
+                    (SELECT id_temporada FROM temporadas WHERE temporada = ?),
+                    (SELECT id_color FROM colores WHERE color = ?),
+                    ?,
+                    ?,
+                    (SELECT id_estado_prenda FROM estados_prenda WHERE estado_prenda = ?),
+                    (SELECT id_talla FROM tallas WHERE talla = ?),
+                    ?,
+                    (SELECT id_ocacion FROM ocaciones WHERE ocacion = ?),
+                    (SELECT id_categoria FROM categorias WHERE categoria = ?)
+                )
+            `;
 
-    const [resultado] = await db.query(consulta, valores);
+            const valores = [
+                idUsuario,
+                genero,
+                temporada,
+                listaColores[0],
+                nombre,
+                privacidad,
+                estado,
+                talle,
+                rutaImagen,
+                ocasion,
+                categoria,
+            ];
 
-    if (resultado.affectedRows === 0) {
-      return res.status(404).json({
-        mensaje: "Prenda no encontrada",
-      });
-    }
+            return db.query(consulta, valores);
+        })
+        .then(([resultado]) => {
 
-    await db.query("DELETE FROM prendas_estilos WHERE id_prenda = ?", [id]);
+            const idPrenda = resultado.insertId;
 
-    if (listaEstilos.length > 0) {
-      const consultaEstilos = `
-        INSERT INTO prendas_estilos (id_prenda, id_estilo)
-        SELECT ?, id_estilo
-        FROM estilos
-        WHERE estilo IN (?)
-      `;
+            // GUARDAR ESTILOS
+            if (listaEstilos.length > 0) {
+                const consultaEstilos = `
+                    INSERT INTO prendas_estilos (id_prenda, id_estilo)
+                    SELECT ?, id_estilo
+                    FROM estilos
+                    WHERE estilo IN (?)
+                `;
 
-      await db.query(consultaEstilos, [id, listaEstilos]);
-    }
+                return db.query(consultaEstilos, [idPrenda, listaEstilos])
+                    .then(() => idPrenda);
+            }
 
-    res.json({
-      mensaje: "Prenda modificada correctamente",
-      imagen: rutaImagen,
-    });
-  } catch (error) {
-    console.error("Error al modificar la prenda:", error);
+            return idPrenda;
+        })
+        .then((idPrenda) => {
 
-    res.status(500).json({
-      mensaje: "Error al modificar la prenda",
-    });
-  }
+            // RESPUESTA EXITOSA
+            res.status(201).json({
+                mensaje: "Prenda creada correctamente",
+                id_prenda: idPrenda,
+                imagen: rutaImagen,
+            });
+
+        })
+        .catch((error) => {
+
+            // MANEJO DE ERRORES
+            console.error("Error al crear la prenda:", error);
+
+            res.status(500).json({
+                mensaje: "Error al crear la prenda",
+            });
+
+        });
 });
 
 router.delete("/:id", (req, res) => {
