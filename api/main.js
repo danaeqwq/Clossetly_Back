@@ -16,6 +16,7 @@ const resultadosRouter = require("./testEstilo/resultados/resultados_main");
 const propuestasRouter = require("./propuestas/propuestas_main");
 const notificacionesRouter = require("./notificaciones/notificaciones_main");
 const gestionUsuariosRouter = require ("./usuarios/Gestion_usuarios_main")
+const ventasRouter = require ("./ventas/ventas_main")
 
 const loginRouter = require("./auth/login");
 const registroRouter = require("./auth/registro");
@@ -39,6 +40,7 @@ router.use("/outfits", middlewareSeg, outfitsRouter);
 router.use("/usuarios", middlewareSeg, usuarioRouter);
 router.use("/propuestas", middlewareSeg, propuestasRouter);
 router.use("/notificaciones", middlewareSeg, notificacionesRouter);
+router.use("/ventas", middlewareSeg, ventasRouter);
 // RUTAS DE ADMINISTRACIÓN
 router.use("/admin/usuarios",middlewareSeg,middlewareRol("Admin"),gestionUsuariosRouter);
 
