@@ -23,20 +23,17 @@ router.get("/", (req, res) => {
     : colores
       ? [colores]
       : [];
-
   const listaEstilos = Array.isArray(estilos)
     ? estilos
     : estilos
       ? [estilos]
       : [];
-
   const listaTiposAceptados = Array.isArray(categoriasAceptadas)
     ? categoriasAceptadas
     : categoriasAceptadas
       ? [categoriasAceptadas]
       : [];
 
-  // FILTROS GENERALES
   const condiciones = [];
   const valores = [];
 
@@ -70,36 +67,31 @@ router.get("/", (req, res) => {
     valores.push(genero);
   }
 
-  // FILTRO POR COLORES
   if (listaColores.length > 0) {
     condiciones.push("co.color IN (?)");
     valores.push(listaColores);
   }
 
-  // FILTRO POR ESTILOS
   if (listaEstilos.length > 0) {
     condiciones.push(`
-            EXISTS (
-                SELECT 1
-                FROM prendas_estilos pe
-                INNER JOIN estilos e
-                    ON pe.id_estilo = e.id_estilo
-                WHERE pe.id_prenda = p.id_prenda
-                AND e.estilo IN (?)
-            )
-        `);
-
+      EXISTS (
+        SELECT 1
+        FROM prendas_estilos pe
+        INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
+        WHERE pe.id_prenda = p.id_prenda
+        AND e.estilo IN (?)
+      )
+    `);
     valores.push(listaEstilos);
   }
 
-  // FILTROS ESPECÍFICOS DE INTERCAMBIO
   if (estadoMinimoAceptado) {
     condiciones.push(`
-    (
-      pi.estado_MA IS NULL
-      OR p.id_estado_prenda <= ?
-    )
-  `);
+      (
+        pi.estado_MA IS NULL
+        OR p.id_estado_prenda <= ?
+      )
+    `);
     valores.push(Number(estadoMinimoAceptado));
   }
 
@@ -110,96 +102,68 @@ router.get("/", (req, res) => {
 
   if (listaTiposAceptados.length > 0) {
     condiciones.push(`
-            EXISTS (
-                SELECT 1
-                FROM categorias_aceptadas ca2
-                INNER JOIN categorias c2
-                    ON ca2.id_categoria = c2.id_categoria
-                WHERE ca2.id_publicacion_intercambio = pi.Id_publicacion_intercambio
-                AND c2.categoria IN (?)
-            )
-        `);
-
+      EXISTS (
+        SELECT 1
+        FROM categorias_aceptadas ca2
+        INNER JOIN categorias c2 ON ca2.id_categoria = c2.id_categoria
+        WHERE ca2.id_publicacion_intercambio = pi.Id_publicacion_intercambio
+        AND c2.categoria IN (?)
+      )
+    `);
     valores.push(listaTiposAceptados);
   }
 
-  let where = "";
+  const where =
+    condiciones.length > 0 ? `AND ${condiciones.join(" AND ")}` : "";
 
-  if (condiciones.length > 0) {
-    where = `AND ${condiciones.join(" AND ")}`;
-  }
-
-  // CONSULTA PRINCIPAL
   const consulta = `
-        SELECT
-            pi.Id_publicacion_intercambio AS id,
-            'intercambio' AS tipo,
-            NULL AS precio,
-            tb.talla AS talleBuscado,
-            ema.estado_prenda AS estadoMinimoAceptado,
+    SELECT
+      pi.Id_publicacion_intercambio AS id,
+      'intercambio' AS tipo,
+      NULL AS precio,
+      tb.talla AS talleBuscado,
+      ema.estado_prenda AS estadoMinimoAceptado,
 
-            p.id_prenda AS idPrenda,
-            p.nombre,
-            ta.talla AS talle,
-            ep.estado_prenda AS estado,
-            NULL AS stock,
-            p.privacidad,
-            p.imagen,
+      p.id_prenda AS idPrenda,
+      p.nombre,
+      ta.talla AS talle,
+      ep.estado_prenda AS estado,
+      NULL AS stock,
+      p.privacidad,
+      p.imagen,
 
-            u.Id_usuario AS idUsuario,
-            u.nombre AS usuario,
+      u.Id_usuario AS idUsuario,
+      u.nombre AS usuario,
 
-            g.genero,
-            ca.id_categoria AS idCategoria,
-            ca.categoria AS prenda,
-            co.color AS color,
-            co.codigo AS codigoColor,
-            te.temporada,
-            oc.ocacion AS ocasion
+      g.genero,
+      ca.id_categoria AS idCategoria,
+      ca.categoria AS prenda,
+      co.color AS color,
+      co.codigo AS codigoColor,
+      te.temporada,
+      oc.ocacion AS ocasion
 
-        FROM publicaciones_intercambio pi
+    FROM publicaciones_intercambio pi
+    INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+    INNER JOIN usuarios u ON p.Id_usuario = u.Id_usuario
 
-        INNER JOIN prendas p
-            ON pi.id_prenda = p.id_prenda
+    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+    LEFT JOIN colores co ON p.id_color = co.id_color
+    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+    LEFT JOIN generos g ON p.id_genero = g.id_genero
+    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN tallas tb ON pi.talle_buscado = tb.id_talla
+    LEFT JOIN estados_prenda ema ON pi.estado_MA = ema.id_estado_prenda
 
-        INNER JOIN usuarios u
-            ON p.Id_usuario = u.Id_usuario
+    WHERE p.privacidad = 1
+    AND p.Id_usuario <> ?
+    ${where}
 
-        LEFT JOIN categorias ca
-            ON p.id_categoria = ca.id_categoria
+    ORDER BY pi.Id_publicacion_intercambio DESC
+  `;
 
-        LEFT JOIN colores co
-            ON p.id_color = co.id_color
-
-        LEFT JOIN tallas ta
-            ON p.id_talla = ta.id_talla
-
-        LEFT JOIN estados_prenda ep
-            ON p.id_estado_prenda = ep.id_estado_prenda
-
-        LEFT JOIN temporadas te
-            ON p.id_temporada = te.id_temporada
-
-        LEFT JOIN generos g
-            ON p.id_genero = g.id_genero
-
-        LEFT JOIN ocaciones oc
-            ON p.id_ocacion = oc.id_ocacion
-
-        LEFT JOIN tallas tb
-            ON pi.talle_buscado = tb.id_talla
-
-        LEFT JOIN estados_prenda ema
-            ON pi.estado_MA = ema.id_estado_prenda
-
-        WHERE p.privacidad = 1
-AND p.Id_usuario <> ?
-${where}
-
-        ORDER BY pi.Id_publicacion_intercambio DESC
-    `;
-
-  // EJECUTAR CONSULTA
   db.query(consulta, [idUsuario, ...valores])
     .then(([publicaciones]) => {
       res.json({ publicaciones });
@@ -213,161 +177,138 @@ ${where}
     });
 });
 
-router.get("/mis", async (req, res) => {
+router.get("/mis", (req, res) => {
   const idUsuario = req.user.id;
 
-  try {
-    const consulta = `
-  SELECT
-    pi.*,
-    p.nombre,
-    p.imagen,
-    p.privacidad,
-    ca.categoria AS categoria,
-    ta.talla AS talle,
-    te.temporada,
-    ep.estado_prenda AS estado,
-    oc.ocacion AS ocasion,
-    g.genero,
-    co.color AS color,
-    ema.estado_prenda AS estadoMinimoAceptado,
+  const consulta = `
+    SELECT
+      pi.*,
+      p.nombre,
+      p.imagen,
+      p.privacidad,
+      ca.categoria AS categoria,
+      ta.talla AS talle,
+      te.temporada,
+      ep.estado_prenda AS estado,
+      oc.ocacion AS ocasion,
+      g.genero,
+      co.color AS color,
+      ema.estado_prenda AS estadoMinimoAceptado,
 
-    (
-  SELECT JSON_ARRAYAGG(e.estilo)
-  FROM prendas_estilos pe
-  INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
-  WHERE pe.id_prenda = p.id_prenda
-) AS estilos,
+      (
+        SELECT JSON_ARRAYAGG(e.estilo)
+        FROM prendas_estilos pe
+        INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
+        WHERE pe.id_prenda = p.id_prenda
+      ) AS estilos,
 
-(
-  SELECT JSON_ARRAYAGG(catAceptada.categoria)
-  FROM categorias_aceptadas ca
-  INNER JOIN categorias catAceptada
-    ON ca.id_categoria = catAceptada.id_categoria
-  WHERE ca.id_publicacion_intercambio = pi.Id_publicacion_intercambio
-) AS tiposAceptados
+      (
+        SELECT JSON_ARRAYAGG(catAceptada.categoria)
+        FROM categorias_aceptadas ca2
+        INNER JOIN categorias catAceptada
+          ON ca2.id_categoria = catAceptada.id_categoria
+        WHERE ca2.id_publicacion_intercambio = pi.Id_publicacion_intercambio
+      ) AS tiposAceptados
 
-  FROM publicaciones_intercambio pi
-  INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
-  LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
-  LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
-  LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
-  LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
-  LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
-  LEFT JOIN generos g ON p.id_genero = g.id_genero
-  LEFT JOIN colores co ON p.id_color = co.id_color
-  LEFT JOIN estados_prenda ema ON pi.estado_MA = ema.id_estado_prenda
+    FROM publicaciones_intercambio pi
+    INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN generos g ON p.id_genero = g.id_genero
+    LEFT JOIN colores co ON p.id_color = co.id_color
+    LEFT JOIN estados_prenda ema ON pi.estado_MA = ema.id_estado_prenda
 
-  WHERE p.id_usuario = ?
-  ORDER BY pi.id_publicacion_intercambio DESC
-`;
+    WHERE p.Id_usuario = ?
+    ORDER BY pi.Id_publicacion_intercambio DESC
+  `;
 
-    const [publicaciones] = await db.query(consulta, [idUsuario]);
+  db.query(consulta, [idUsuario])
+    .then(([publicaciones]) => {
+      res.json({ publicaciones });
+    })
+    .catch((error) => {
+      console.error("Error al cargar mis intercambios:", error);
 
-    res.json(publicaciones);
-  } catch (error) {
-    console.error("Error al cargar mis intercambios:", error);
-    console.log(error.sqlMessage);
-    console.log(error.message);
-    res.status(500).json({
-      mensaje: error.sqlMessage || error.message,
+      res.status(500).json({
+        mensaje: "Error al cargar tus publicaciones de intercambio",
+        error: error.message,
+      });
     });
-  }
 });
 
 router.get("/:id", (req, res) => {
   const { id } = req.params;
 
   const consulta = `
-        SELECT
-            pi.Id_publicacion_intercambio AS id,
-            'intercambio' AS tipo,
-            NULL AS precio,
-            tb.talla AS talleBuscado,
-            ema.estado_prenda AS estadoMinimoAceptado,
+    SELECT
+      pi.Id_publicacion_intercambio AS id,
+      'intercambio' AS tipo,
+      NULL AS precio,
+      tb.talla AS talleBuscado,
+      ema.estado_prenda AS estadoMinimoAceptado,
 
-            (
-                SELECT JSON_ARRAYAGG(c2.categoria)
-                FROM categorias_aceptadas ca2
-                INNER JOIN categorias c2
-                    ON ca2.id_categoria = c2.id_categoria
-                WHERE ca2.id_publicacion_intercambio = pi.Id_publicacion_intercambio
-            ) AS tiposAceptados,
+      (
+        SELECT JSON_ARRAYAGG(c2.categoria)
+        FROM categorias_aceptadas ca2
+        INNER JOIN categorias c2 ON ca2.id_categoria = c2.id_categoria
+        WHERE ca2.id_publicacion_intercambio = pi.Id_publicacion_intercambio
+      ) AS tiposAceptados,
 
-            (
-                SELECT JSON_ARRAYAGG(e.estilo)
-                FROM prendas_estilos pe
-                INNER JOIN estilos e
-                    ON pe.id_estilo = e.id_estilo
-                WHERE pe.id_prenda = p.id_prenda
-            ) AS estilos,
+      (
+        SELECT JSON_ARRAYAGG(e.estilo)
+        FROM prendas_estilos pe
+        INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
+        WHERE pe.id_prenda = p.id_prenda
+      ) AS estilos,
 
-            JSON_ARRAY(
-                JSON_OBJECT(
-                    'color', co.color,
-                    'codigoColor', co.codigo
-                )
-            ) AS colores,
+      JSON_ARRAY(
+        JSON_OBJECT(
+          'color', co.color,
+          'codigoColor', co.codigo
+        )
+      ) AS colores,
 
-            JSON_ARRAY(tb.talla) AS tallesBuscados,
+      JSON_ARRAY(tb.talla) AS tallesBuscados,
 
-            p.id_prenda AS idPrenda,
-            p.nombre,
-            p.imagen,
-            p.privacidad,
+      p.id_prenda AS idPrenda,
+      p.nombre,
+      p.imagen,
+      p.privacidad,
 
-            ta.talla AS talle,
-            ep.estado_prenda AS estado,
-            g.genero,
-            ca.id_categoria AS idCategoria,
-            ca.categoria AS prenda,
-            co.color AS color,
-            co.codigo AS codigoColor,
-            te.temporada,
-            oc.ocacion AS ocasion,
+      ta.talla AS talle,
+      ep.estado_prenda AS estado,
+      g.genero,
+      ca.id_categoria AS idCategoria,
+      ca.categoria AS prenda,
+      co.color AS color,
+      co.codigo AS codigoColor,
+      te.temporada,
+      oc.ocacion AS ocasion,
 
-            u.Id_usuario AS idUsuario,
-            u.nombre AS usuario,
-            u.foto_perfil AS fotoPerfil
+      u.Id_usuario AS idUsuario,
+      u.nombre AS usuario,
+      u.foto_perfil AS fotoPerfil
 
-        FROM publicaciones_intercambio pi
+    FROM publicaciones_intercambio pi
+    INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+    INNER JOIN usuarios u ON p.Id_usuario = u.Id_usuario
 
-        INNER JOIN prendas p
-            ON pi.id_prenda = p.id_prenda
+    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+    LEFT JOIN colores co ON p.id_color = co.id_color
+    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+    LEFT JOIN generos g ON p.id_genero = g.id_genero
+    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN tallas tb ON pi.talle_buscado = tb.id_talla
+    LEFT JOIN estados_prenda ema ON pi.estado_MA = ema.id_estado_prenda
 
-        INNER JOIN usuarios u
-            ON p.Id_usuario = u.Id_usuario
-
-        LEFT JOIN categorias ca
-            ON p.id_categoria = ca.id_categoria
-
-        LEFT JOIN colores co
-            ON p.id_color = co.id_color
-
-        LEFT JOIN tallas ta
-            ON p.id_talla = ta.id_talla
-
-        LEFT JOIN estados_prenda ep
-            ON p.id_estado_prenda = ep.id_estado_prenda
-
-        LEFT JOIN temporadas te
-            ON p.id_temporada = te.id_temporada
-
-        LEFT JOIN generos g
-            ON p.id_genero = g.id_genero
-
-        LEFT JOIN ocaciones oc
-            ON p.id_ocacion = oc.id_ocacion
-
-        LEFT JOIN tallas tb
-            ON pi.talle_buscado = tb.id_talla
-
-        LEFT JOIN estados_prenda ema
-            ON pi.estado_MA = ema.id_estado_prenda
-
-        WHERE pi.Id_publicacion_intercambio = ?
-        AND p.privacidad = 1
-    `;
+    WHERE pi.Id_publicacion_intercambio = ?
+    AND p.privacidad = 1
+  `;
 
   db.query(consulta, [id])
     .then(([resultados]) => {
@@ -388,217 +329,281 @@ router.get("/:id", (req, res) => {
     });
 });
 
-router.post("/", async (req, res) => {
+router.post("/", (req, res) => {
   const idUsuario = req.user.id;
 
-  try {
-    const {
-      id_prenda,
-      estado_MA,
-      talle_buscado,
-      categoriasAceptadas = [],
-    } = req.body;
+  const {
+    id_prenda,
+    estado_MA,
+    talle_buscado,
+    categoriasAceptadas = [],
+  } = req.body;
 
-    if (
-      !Number.isInteger(Number(id_prenda)) ||
-      (estado_MA !== null && !Number.isInteger(Number(estado_MA))) ||
-      !Number.isInteger(Number(talle_buscado)) ||
-      !Array.isArray(categoriasAceptadas)
-    ) {
-      return res.status(400).json({
-        mensaje: "Los datos de la publicación no son válidos",
-      });
-    }
+  const estadoMA =
+    estado_MA === null || estado_MA === undefined || estado_MA === ""
+      ? null
+      : Number(estado_MA);
 
-    // Comprobar que la prenda pertenece al usuario
-    const [prendas] = await db.query(
-      `SELECT id_prenda
-       FROM prendas
-       WHERE id_prenda = ? AND Id_usuario = ?`,
-      [id_prenda, idUsuario],
-    );
-
-    if (prendas.length === 0) {
-      return res.status(403).json({
-        mensaje: "No podés publicar una prenda que no te pertenece",
-      });
-    }
-
-    // Normalizar y quitar categorías repetidas
-    const categorias = [...new Set(categoriasAceptadas.map(Number))];
-
-    if (!categorias.every((id) => Number.isInteger(id) && id > 0)) {
-      return res.status(400).json({
-        mensaje: "Las categorías aceptadas no son válidas",
-      });
-    }
-
-    // Crear publicación
-    const [resultado] = await db.query(
-      `INSERT INTO publicaciones_intercambio
-       (id_prenda, estado_MA, talle_buscado)
-       VALUES (?, ?, ?)`,
-      [id_prenda, estado_MA, talle_buscado],
-    );
-
-    const idPublicacion = resultado.insertId;
-
-    // Guardar las categorías aceptadas
-    if (categorias.length > 0) {
-      const valores = categorias.map((idCategoria) => [
-        idCategoria,
-        idPublicacion,
-      ]);
-
-      await db.query(
-        `INSERT INTO categorias_aceptadas
-         (id_categoria, id_publicacion_intercambio)
-         VALUES ?`,
-        [valores],
-      );
-    }
-
-    res.status(201).json({
-      mensaje: "Publicación de intercambio creada correctamente",
-      id: idPublicacion,
-    });
-  } catch (error) {
-    console.error("Error al crear publicación de intercambio:", error);
-
-    res.status(500).json({
-      mensaje: "Error al crear la publicación",
+  if (
+    !Number.isInteger(Number(id_prenda)) ||
+    (estadoMA !== null && !Number.isInteger(estadoMA)) ||
+    !Number.isInteger(Number(talle_buscado)) ||
+    !Array.isArray(categoriasAceptadas)
+  ) {
+    return res.status(400).json({
+      mensaje: "Los datos de la publicación no son válidos",
     });
   }
+
+  const categorias = [...new Set(categoriasAceptadas.map(Number))];
+
+  if (!categorias.every((id) => Number.isInteger(id) && id > 0)) {
+    return res.status(400).json({
+      mensaje: "Las categorías aceptadas no son válidas",
+    });
+  }
+
+  db.query(
+    `SELECT id_prenda
+     FROM prendas
+     WHERE id_prenda = ? AND Id_usuario = ?`,
+    [id_prenda, idUsuario],
+  )
+    .then(([prendas]) => {
+      if (prendas.length === 0) {
+        res.status(403).json({
+          mensaje: "No podés publicar una prenda que no te pertenece",
+        });
+        return null;
+      }
+
+      return db.query(
+        `SELECT id_prenda FROM publicaciones_compra
+         WHERE id_prenda = ?
+         UNION
+         SELECT id_prenda FROM publicaciones_intercambio
+         WHERE id_prenda = ?`,
+        [id_prenda, id_prenda],
+      );
+    })
+    .then((resultado) => {
+      if (res.headersSent || resultado === null) return null;
+
+      const [publicadas] = resultado;
+
+      if (publicadas.length > 0) {
+        res.status(409).json({
+          mensaje: "Esta prenda ya tiene una publicación",
+        });
+        return null;
+      }
+
+      return db.query(
+        `INSERT INTO publicaciones_intercambio
+         (id_prenda, estado_MA, talle_buscado)
+         VALUES (?, ?, ?)`,
+        [id_prenda, estadoMA, talle_buscado],
+      );
+    })
+    .then((resultado) => {
+      if (res.headersSent || resultado === null) return;
+
+      const [insertado] = resultado;
+      const idPublicacion = insertado.insertId;
+
+      if (categorias.length === 0) {
+        return res.status(201).json({
+          mensaje: "Publicación de intercambio creada correctamente",
+          id: idPublicacion,
+        });
+      }
+
+      const valores = categorias.map((id) => [id, idPublicacion]);
+
+      return db
+        .query(
+          `INSERT INTO categorias_aceptadas
+         (id_categoria, id_publicacion_intercambio)
+         VALUES ?`,
+          [valores],
+        )
+        .then(() => {
+          res.status(201).json({
+            mensaje: "Publicación de intercambio creada correctamente",
+            id: idPublicacion,
+          });
+        });
+    })
+    .catch((error) => {
+      console.error("Error al crear publicación de intercambio:", error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          mensaje: "Error al crear la publicación",
+          error: error.message,
+        });
+      }
+    });
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", (req, res) => {
   const idUsuario = req.user.id;
   const idPublicacion = req.params.id;
 
-  try {
-    const { estado_MA, talle_buscado, categoriasAceptadas = [] } = req.body;
+  const { estado_MA, talle_buscado, categoriasAceptadas = [] } = req.body;
 
-    if (
-      (estado_MA !== null && !Number.isInteger(Number(estado_MA))) ||
-      !Number.isInteger(Number(talle_buscado)) ||
-      !Array.isArray(categoriasAceptadas)
-    ) {
-      return res.status(400).json({
-        mensaje: "Los datos ingresados no son válidos",
-      });
-    }
+  const estadoMA =
+    estado_MA === null || estado_MA === undefined || estado_MA === ""
+      ? null
+      : Number(estado_MA);
 
-    // Comprobar que la publicación pertenece al usuario
-    const [publicaciones] = await db.query(
-      `SELECT pi.Id_publicacion_intercambio
-       FROM publicaciones_intercambio pi
-       INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
-       WHERE pi.Id_publicacion_intercambio = ?
-       AND p.Id_usuario = ?`,
-      [idPublicacion, idUsuario],
-    );
-
-    if (publicaciones.length === 0) {
-      return res.status(404).json({
-        mensaje: "No se encontró la publicación",
-      });
-    }
-
-    const categorias = [...new Set(categoriasAceptadas.map(Number))];
-
-    if (!categorias.every((id) => Number.isInteger(id) && id > 0)) {
-      return res.status(400).json({
-        mensaje: "Las categorías aceptadas no son válidas",
-      });
-    }
-
-    // Actualizar los datos de la publicación
-    await db.query(
-      `UPDATE publicaciones_intercambio
-       SET estado_MA = ?, talle_buscado = ?
-       WHERE Id_publicacion_intercambio = ?`,
-      [estado_MA, talle_buscado, idPublicacion],
-    );
-
-    // Eliminar las categorías anteriores
-    await db.query(
-      `DELETE FROM categorias_aceptadas
-       WHERE id_publicacion_intercambio = ?`,
-      [idPublicacion],
-    );
-
-    // Guardar las nuevas categorías
-    if (categorias.length > 0) {
-      const valores = categorias.map((idCategoria) => [
-        idCategoria,
-        idPublicacion,
-      ]);
-
-      await db.query(
-        `INSERT INTO categorias_aceptadas
-         (id_categoria, id_publicacion_intercambio)
-         VALUES ?`,
-        [valores],
-      );
-    }
-
-    res.json({
-      mensaje: "Publicación de intercambio modificada correctamente",
-    });
-  } catch (error) {
-    console.error("Error al modificar publicación de intercambio:", error);
-
-    res.status(500).json({
-      mensaje: "Error al modificar la publicación",
+  if (
+    (estadoMA !== null && !Number.isInteger(estadoMA)) ||
+    !Number.isInteger(Number(talle_buscado)) ||
+    !Array.isArray(categoriasAceptadas)
+  ) {
+    return res.status(400).json({
+      mensaje: "Los datos ingresados no son válidos",
     });
   }
+
+  const categorias = [...new Set(categoriasAceptadas.map(Number))];
+
+  if (!categorias.every((id) => Number.isInteger(id) && id > 0)) {
+    return res.status(400).json({
+      mensaje: "Las categorías aceptadas no son válidas",
+    });
+  }
+
+  db.query(
+    `SELECT pi.Id_publicacion_intercambio
+     FROM publicaciones_intercambio pi
+     INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+     WHERE pi.Id_publicacion_intercambio = ?
+     AND p.Id_usuario = ?`,
+    [idPublicacion, idUsuario],
+  )
+    .then(([publicaciones]) => {
+      if (publicaciones.length === 0) {
+        res.status(404).json({
+          mensaje: "No se encontró la publicación",
+        });
+        return null;
+      }
+
+      return db.query(
+        `UPDATE publicaciones_intercambio
+         SET estado_MA = ?, talle_buscado = ?
+         WHERE Id_publicacion_intercambio = ?`,
+        [estadoMA, talle_buscado, idPublicacion],
+      );
+    })
+    .then((resultado) => {
+      if (res.headersSent || resultado === null) return;
+
+      return db.query(
+        `DELETE FROM categorias_aceptadas
+         WHERE id_publicacion_intercambio = ?`,
+        [idPublicacion],
+      );
+    })
+    .then((resultado) => {
+      if (res.headersSent || resultado === null) return;
+
+      if (categorias.length === 0) {
+        return res.json({
+          mensaje: "Publicación de intercambio modificada correctamente",
+        });
+      }
+
+      const valores = categorias.map((id) => [id, idPublicacion]);
+
+      return db
+        .query(
+          `INSERT INTO categorias_aceptadas
+         (id_categoria, id_publicacion_intercambio)
+         VALUES ?`,
+          [valores],
+        )
+        .then(() => {
+          res.json({
+            mensaje: "Publicación de intercambio modificada correctamente",
+          });
+        });
+    })
+    .catch((error) => {
+      console.error("Error al modificar publicación de intercambio:", error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          mensaje: "Error al modificar la publicación",
+          error: error.message,
+        });
+      }
+    });
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", (req, res) => {
   const idUsuario = req.user.id;
   const idPublicacion = req.params.id;
 
-  try {
-    // Comprobar que la publicación pertenece al usuario
-    const [publicaciones] = await db.query(
-      `SELECT pi.Id_publicacion_intercambio
-       FROM publicaciones_intercambio pi
-       INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
-       WHERE pi.Id_publicacion_intercambio = ?
-       AND p.Id_usuario = ?`,
-      [idPublicacion, idUsuario],
-    );
+  db.query(
+    `SELECT pi.Id_publicacion_intercambio
+     FROM publicaciones_intercambio pi
+     INNER JOIN prendas p ON pi.id_prenda = p.id_prenda
+     WHERE pi.Id_publicacion_intercambio = ?
+     AND p.Id_usuario = ?`,
+    [idPublicacion, idUsuario],
+  )
+    .then(([publicaciones]) => {
+      if (publicaciones.length === 0) {
+        res.status(404).json({
+          mensaje: "No se encontró la publicación",
+        });
+        return null;
+      }
 
-    if (publicaciones.length === 0) {
-      return res.status(404).json({
-        mensaje: "No se encontró la publicación",
+      return db.query(
+        `DELETE FROM propuestas
+         WHERE publicacion_intercambio = ?`,
+        [idPublicacion],
+      );
+    })
+    .then((resultado) => {
+      if (res.headersSent || resultado === null) return;
+
+      return db.query(
+        `DELETE FROM categorias_aceptadas
+         WHERE id_publicacion_intercambio = ?`,
+        [idPublicacion],
+      );
+    })
+    .then((resultado) => {
+      if (res.headersSent || resultado === null) return;
+
+      return db.query(
+        `DELETE FROM publicaciones_intercambio
+         WHERE Id_publicacion_intercambio = ?`,
+        [idPublicacion],
+      );
+    })
+    .then(() => {
+      if (res.headersSent) return;
+
+      res.json({
+        mensaje: "Publicación y propuestas eliminadas correctamente",
       });
-    }
+    })
+    .catch((error) => {
+      console.error("Error al eliminar publicación:", error);
 
-    // Eliminar primero las categorías relacionadas
-    await db.query(
-      `DELETE FROM categorias_aceptadas
-       WHERE id_publicacion_intercambio = ?`,
-      [idPublicacion],
-    );
-
-    // Eliminar la publicación
-    await db.query(
-      `DELETE FROM publicaciones_intercambio
-       WHERE Id_publicacion_intercambio = ?`,
-      [idPublicacion],
-    );
-
-    res.json({
-      mensaje: "Publicación de intercambio eliminada correctamente",
+      if (!res.headersSent) {
+        res.status(500).json({
+          mensaje: "Error al eliminar la publicación",
+          error: error.message,
+        });
+      }
     });
-  } catch (error) {
-    console.error("Error al eliminar publicación de intercambio:", error);
-
-    res.status(500).json({
-      mensaje: "Error al eliminar la publicación",
-    });
-  }
 });
 
 module.exports = router;

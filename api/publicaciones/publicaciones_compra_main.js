@@ -1,10 +1,6 @@
 const router = require("express").Router();
 const db = require("../../config/db");
 
-// ==================================================
-// OBTENER PUBLICACIONES DE COMPRA (BOUTIQUE)
-// ==================================================
-
 router.get("/", (req, res) => {
   const idUsuario = req.user.id;
 
@@ -32,11 +28,9 @@ router.get("/", (req, res) => {
       ? [estilos]
       : [];
 
-  // FILTROS GENERALES
   const condiciones = [];
   const valores = [];
 
-  // EXCLUIR LAS PUBLICACIONES DEL USUARIO LOGUEADO
   condiciones.push("p.Id_usuario <> ?");
   valores.push(idUsuario);
 
@@ -70,35 +64,26 @@ router.get("/", (req, res) => {
     valores.push(genero);
   }
 
-  // FILTRO POR COLORES
   if (listaColores.length > 0) {
     condiciones.push("co.color IN (?)");
     valores.push(listaColores);
   }
 
-  // FILTRO POR ESTILOS
   if (listaEstilos.length > 0) {
     condiciones.push(`
       EXISTS (
         SELECT 1
         FROM prendas_estilos pe
-        INNER JOIN estilos e
-          ON pe.id_estilo = e.id_estilo
+        INNER JOIN estilos e ON pe.id_estilo = e.id_estilo
         WHERE pe.id_prenda = p.id_prenda
         AND e.estilo IN (?)
       )
     `);
-
     valores.push(listaEstilos);
   }
 
-  let where = "";
+  const where = `AND ${condiciones.join(" AND ")}`;
 
-  if (condiciones.length > 0) {
-    where = `AND ${condiciones.join(" AND ")}`;
-  }
-
-  // ORDENAMIENTO
   let orden = "pc.id_publicacion_compra DESC";
 
   if (ordenPrecio === "MENOR MAYOR") {
@@ -107,7 +92,6 @@ router.get("/", (req, res) => {
     orden = "pc.precio_unitario DESC";
   }
 
-  // CONSULTA PRINCIPAL
   const consulta = `
     SELECT
       pc.id_publicacion_compra AS id,
@@ -137,33 +121,16 @@ router.get("/", (req, res) => {
       oc.ocacion AS ocasion
 
     FROM publicaciones_compra pc
+    INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
+    INNER JOIN usuarios u ON p.Id_usuario = u.Id_usuario
 
-    INNER JOIN prendas p
-      ON pc.id_prenda = p.id_prenda
-
-    INNER JOIN usuarios u
-      ON p.Id_usuario = u.Id_usuario
-
-    LEFT JOIN categorias ca
-      ON p.id_categoria = ca.id_categoria
-
-    LEFT JOIN colores co
-      ON p.id_color = co.id_color
-
-    LEFT JOIN tallas ta
-      ON p.id_talla = ta.id_talla
-
-    LEFT JOIN estados_prenda ep
-      ON p.id_estado_prenda = ep.id_estado_prenda
-
-    LEFT JOIN temporadas te
-      ON p.id_temporada = te.id_temporada
-
-    LEFT JOIN generos g
-      ON p.id_genero = g.id_genero
-
-    LEFT JOIN ocaciones oc
-      ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+    LEFT JOIN colores co ON p.id_color = co.id_color
+    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+    LEFT JOIN generos g ON p.id_genero = g.id_genero
+    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
 
     WHERE p.privacidad = 1
     ${where}
@@ -184,11 +151,7 @@ router.get("/", (req, res) => {
     });
 });
 
-// ==================================================
-// OBTENER MIS PUBLICACIONES DE COMPRA
-// ==================================================
-
-router.get("/mis", async (req, res) => {
+router.get("/mis", (req, res) => {
   const idUsuario = req.user.id;
 
   const consulta = `
@@ -234,22 +197,18 @@ router.get("/mis", async (req, res) => {
     ORDER BY pc.id_publicacion_compra DESC
   `;
 
-  try {
-    const [publicaciones] = await db.query(consulta, [idUsuario]);
+  db.query(consulta, [idUsuario])
+    .then(([publicaciones]) => {
+      res.json({ publicaciones });
+    })
+    .catch((error) => {
+      console.error("Error al obtener mis ventas:", error);
 
-    res.json({ publicaciones });
-  } catch (error) {
-    console.error("Error al obtener mis ventas:", error);
-
-    res.status(500).json({
-      mensaje: "Error al obtener tus publicaciones de compra",
+      res.status(500).json({
+        mensaje: "Error al obtener tus publicaciones de compra",
+      });
     });
-  }
 });
-
-// ==================================================
-// OBTENER DETALLE DE UNA PUBLICACIÓN
-// ==================================================
 
 router.get("/:id", (req, res) => {
   const { id } = req.params;
@@ -281,33 +240,16 @@ router.get("/:id", (req, res) => {
       u.foto_perfil AS fotoPerfil
 
     FROM publicaciones_compra pc
+    INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
+    INNER JOIN usuarios u ON p.Id_usuario = u.Id_usuario
 
-    INNER JOIN prendas p
-      ON pc.id_prenda = p.id_prenda
-
-    INNER JOIN usuarios u
-      ON p.Id_usuario = u.Id_usuario
-
-    LEFT JOIN categorias ca
-      ON p.id_categoria = ca.id_categoria
-
-    LEFT JOIN colores co
-      ON p.id_color = co.id_color
-
-    LEFT JOIN tallas ta
-      ON p.id_talla = ta.id_talla
-
-    LEFT JOIN estados_prenda ep
-      ON p.id_estado_prenda = ep.id_estado_prenda
-
-    LEFT JOIN temporadas te
-      ON p.id_temporada = te.id_temporada
-
-    LEFT JOIN generos g
-      ON p.id_genero = g.id_genero
-
-    LEFT JOIN ocaciones oc
-      ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN categorias ca ON p.id_categoria = ca.id_categoria
+    LEFT JOIN colores co ON p.id_color = co.id_color
+    LEFT JOIN tallas ta ON p.id_talla = ta.id_talla
+    LEFT JOIN estados_prenda ep ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN temporadas te ON p.id_temporada = te.id_temporada
+    LEFT JOIN generos g ON p.id_genero = g.id_genero
+    LEFT JOIN ocaciones oc ON p.id_ocacion = oc.id_ocacion
 
     WHERE pc.id_publicacion_compra = ?
     AND p.privacidad = 1
@@ -332,157 +274,186 @@ router.get("/:id", (req, res) => {
     });
 });
 
-// ==================================================
-// CREAR PUBLICACIÓN DE COMPRA
-// ==================================================
-
-router.post("/", async (req, res) => {
+router.post("/", (req, res) => {
   const idUsuario = req.user.id;
+  const { id_prenda, stock, precio_unitario } = req.body;
 
-  try {
-    const { id_prenda, stock, precio_unitario } = req.body;
-
-    if (
-      !Number.isInteger(Number(id_prenda)) ||
-      !Number.isInteger(Number(stock)) ||
-      Number(stock) <= 0 ||
-      !Number.isFinite(Number(precio_unitario)) ||
-      Number(precio_unitario) <= 0
-    ) {
-      return res.status(400).json({
-        mensaje: "Los datos de la publicación no son válidos",
-      });
-    }
-
-    const [prendas] = await db.query(
-      `SELECT id_prenda
-       FROM prendas
-       WHERE id_prenda = ? AND Id_usuario = ?`,
-      [id_prenda, idUsuario],
-    );
-
-    if (prendas.length === 0) {
-      return res.status(403).json({
-        mensaje: "No podés publicar una prenda que no te pertenece",
-      });
-    }
-
-    const [resultado] = await db.query(
-      `INSERT INTO publicaciones_compra
-       (id_prenda, stock, precio_unitario)
-       VALUES (?, ?, ?)`,
-      [id_prenda, stock, precio_unitario],
-    );
-
-    res.status(201).json({
-      mensaje: "Publicación de compra creada correctamente",
-      id: resultado.insertId,
-    });
-  } catch (error) {
-    console.error("Error al crear publicación de compra:", error);
-
-    res.status(500).json({
-      mensaje: "Error al crear la publicación",
+  if (
+    !Number.isInteger(Number(id_prenda)) ||
+    !Number.isInteger(Number(stock)) ||
+    Number(stock) <= 0 ||
+    !Number.isFinite(Number(precio_unitario)) ||
+    Number(precio_unitario) <= 0
+  ) {
+    return res.status(400).json({
+      mensaje: "Los datos de la publicación no son válidos",
     });
   }
+
+  db.query(
+    `SELECT id_prenda
+     FROM prendas
+     WHERE id_prenda = ? AND Id_usuario = ?`,
+    [id_prenda, idUsuario],
+  )
+    .then(([prendas]) => {
+      if (prendas.length === 0) {
+        res.status(403).json({
+          mensaje: "No podés publicar una prenda que no te pertenece",
+        });
+        return null;
+      }
+
+      return db.query(
+        `SELECT id_prenda FROM publicaciones_compra
+         WHERE id_prenda = ?
+         UNION
+         SELECT id_prenda FROM publicaciones_intercambio
+         WHERE id_prenda = ?`,
+        [id_prenda, id_prenda],
+      );
+    })
+    .then((resultado) => {
+      if (res.headersSent || resultado === null) return null;
+
+      const [publicadas] = resultado;
+
+      if (publicadas.length > 0) {
+        res.status(409).json({
+          mensaje: "Esta prenda ya tiene una publicación",
+        });
+        return null;
+      }
+
+      return db.query(
+        `INSERT INTO publicaciones_compra
+         (id_prenda, stock, precio_unitario)
+         VALUES (?, ?, ?)`,
+        [id_prenda, stock, precio_unitario],
+      );
+    })
+    .then((resultado) => {
+      if (res.headersSent || resultado === null) return;
+
+      const [insertado] = resultado;
+
+      res.status(201).json({
+        mensaje: "Publicación de compra creada correctamente",
+        id: insertado.insertId,
+      });
+    })
+    .catch((error) => {
+      console.error("ERROR AL CREAR LA PUBLICACIÓN:", error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          mensaje: "Error al crear la publicación",
+          error: error.message,
+        });
+      }
+    });
 });
 
-// ==================================================
-// MODIFICAR PUBLICACIÓN DE COMPRA
-// ==================================================
+router.put("/:id", (req, res) => {
+  const idUsuario = req.user.id;
+  const idPublicacion = req.params.id;
+  const { stock, precio_unitario } = req.body;
 
-router.put("/:id", async (req, res) => {
+  if (
+    !Number.isInteger(Number(stock)) ||
+    Number(stock) <= 0 ||
+    !Number.isFinite(Number(precio_unitario)) ||
+    Number(precio_unitario) <= 0
+  ) {
+    return res.status(400).json({
+      mensaje: "Los datos ingresados no son válidos",
+    });
+  }
+
+  db.query(
+    `SELECT pc.id_publicacion_compra
+     FROM publicaciones_compra pc
+     INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
+     WHERE pc.id_publicacion_compra = ?
+     AND p.Id_usuario = ?`,
+    [idPublicacion, idUsuario],
+  )
+    .then(([publicaciones]) => {
+      if (publicaciones.length === 0) {
+        res.status(404).json({
+          mensaje: "No se encontró la publicación",
+        });
+        return null;
+      }
+
+      return db.query(
+        `UPDATE publicaciones_compra
+         SET stock = ?, precio_unitario = ?
+         WHERE id_publicacion_compra = ?`,
+        [Number(stock), Number(precio_unitario), idPublicacion],
+      );
+    })
+    .then((resultado) => {
+      if (resultado === null || res.headersSent) return;
+
+      res.json({
+        mensaje: "Publicación de compra modificada correctamente",
+      });
+    })
+    .catch((error) => {
+      console.error("Error al modificar publicación de compra:", error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          mensaje: "Error al modificar la publicación",
+          error: error.message,
+        });
+      }
+    });
+});
+
+router.delete("/:id", (req, res) => {
   const idUsuario = req.user.id;
   const idPublicacion = req.params.id;
 
-  try {
-    const { stock, precio_unitario } = req.body;
+  db.query(
+    `SELECT pc.id_publicacion_compra
+     FROM publicaciones_compra pc
+     INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
+     WHERE pc.id_publicacion_compra = ?
+     AND p.Id_usuario = ?`,
+    [idPublicacion, idUsuario],
+  )
+    .then(([publicaciones]) => {
+      if (publicaciones.length === 0) {
+        res.status(404).json({
+          mensaje: "No se encontró la publicación",
+        });
+        return;
+      }
 
-    if (
-      !Number.isInteger(Number(stock)) ||
-      Number(stock) <= 0 ||
-      !Number.isFinite(Number(precio_unitario)) ||
-      Number(precio_unitario) <= 0
-    ) {
-      return res.status(400).json({
-        mensaje: "Los datos ingresados no son válidos",
+      return db.query(
+        `DELETE FROM publicaciones_compra
+         WHERE id_publicacion_compra = ?`,
+        [idPublicacion],
+      );
+    })
+    .then(() => {
+      if (res.headersSent) return;
+
+      res.json({
+        mensaje: "Publicación de compra eliminada correctamente",
       });
-    }
+    })
+    .catch((error) => {
+      console.error("Error al eliminar publicación de compra:", error);
 
-    const [publicaciones] = await db.query(
-      `SELECT pc.id_publicacion_compra
-       FROM publicaciones_compra pc
-       INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
-       WHERE pc.id_publicacion_compra = ?
-       AND p.Id_usuario = ?`,
-      [idPublicacion, idUsuario],
-    );
-
-    if (publicaciones.length === 0) {
-      return res.status(404).json({
-        mensaje: "No se encontró la publicación",
-      });
-    }
-
-    await db.query(
-      `UPDATE publicaciones_compra
-       SET stock = ?, precio_unitario = ?
-       WHERE id_publicacion_compra = ?`,
-      [stock, precio_unitario, idPublicacion],
-    );
-
-    res.json({
-      mensaje: "Publicación de compra modificada correctamente",
+      if (!res.headersSent) {
+        res.status(500).json({
+          mensaje: "Error al eliminar la publicación",
+        });
+      }
     });
-  } catch (error) {
-    console.error("Error al modificar publicación de compra:", error);
-
-    res.status(500).json({
-      mensaje: "Error al modificar la publicación",
-    });
-  }
-});
-
-// ==================================================
-// ELIMINAR PUBLICACIÓN DE COMPRA
-// ==================================================
-
-router.delete("/:id", async (req, res) => {
-  const idUsuario = req.user.id;
-  const idPublicacion = req.params.id;
-
-  try {
-    const [publicaciones] = await db.query(
-      `SELECT pc.id_publicacion_compra
-       FROM publicaciones_compra pc
-       INNER JOIN prendas p ON pc.id_prenda = p.id_prenda
-       WHERE pc.id_publicacion_compra = ?
-       AND p.Id_usuario = ?`,
-      [idPublicacion, idUsuario],
-    );
-
-    if (publicaciones.length === 0) {
-      return res.status(404).json({
-        mensaje: "No se encontró la publicación",
-      });
-    }
-
-    await db.query(
-      `DELETE FROM publicaciones_compra
-       WHERE id_publicacion_compra = ?`,
-      [idPublicacion],
-    );
-
-    res.json({
-      mensaje: "Publicación de compra eliminada correctamente",
-    });
-  } catch (error) {
-    console.error("Error al eliminar publicación de compra:", error);
-
-    res.status(500).json({
-      mensaje: "Error al eliminar la publicación",
-    });
-  }
 });
 
 module.exports = router;
