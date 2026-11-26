@@ -71,7 +71,6 @@ router.get("/", async (req, res) => {
 // CAMBIAR EL PEDIDO A EN CONTACTO
 router.patch("/:id/contacto", async (req, res) => {
   const conexion = await db.getConnection();
-
   try {
     const idComprador = req.user.id;
     const idPedido = req.params.id;
