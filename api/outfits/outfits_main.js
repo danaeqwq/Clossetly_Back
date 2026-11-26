@@ -57,6 +57,69 @@ router.get("/", async (req, res) => {
   }
 });
 
+// OBTENER UN OUTFIT POR ID
+router.get("/:id", async (req, res) => {
+    const { id } = req.params;
+    const idUsuario = req.user.id;
+
+    try {
+        const consulta = `
+            SELECT
+                o.id_outfit AS id,
+                o.nombre,
+                o.descripcion,
+                o.privacidad,
+                oc.ocacion AS ocasion,
+                g.genero,
+                t.temporada,
+
+                (
+                    SELECT JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'id', p.id_prenda,
+                            'nombre', p.nombre,
+                            'imagen', p.imagen
+                        )
+                    )
+                    FROM prendas_outfits po
+                    INNER JOIN prendas p
+                        ON po.id_prenda = p.id_prenda
+                    WHERE po.id_outfit = o.id_outfit
+                ) AS prendas
+
+            FROM outfits o
+
+            LEFT JOIN ocaciones oc
+                ON o.id_ocasion = oc.id_ocacion
+
+            LEFT JOIN generos g
+                ON o.id_genero = g.id_genero
+
+            LEFT JOIN temporadas t
+                ON o.id_temporada = t.id_temporada
+
+            WHERE o.id_outfit = ? AND o.Id_usuario = ?
+        `;
+
+        const [resultado] = await db.query(consulta, [id, idUsuario]);
+
+        if (!resultado.length) {
+            return res.status(404).json({
+                mensaje: "Outfit no encontrado",
+            });
+        }
+
+        res.json({ outfit: resultado[0] });
+
+    } catch (error) {
+        console.error("Error al obtener el outfit:", error);
+
+        res.status(500).json({
+            mensaje: "Error al obtener el outfit",
+        });
+    }
+});
+
 // CREAR OUTFIT
 router.post("/", async (req, res) => {
   const idUsuario = req.user.id;

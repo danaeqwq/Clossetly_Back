@@ -1,6 +1,5 @@
 const router = require("express").Router();
 const db = require("../../config/db");
-const middlewareSeg = require("../middlewares/middlewareSeg");
 
 router.get("/", (req, res) => {
   const idUsuario = req.user.id;
@@ -85,7 +84,6 @@ router.get("/", (req, res) => {
     });
 });
 
-// PRENDAS COMPATIBLES PARA PROPONER INTERCAMBIO
 router.get("/disponibles-intercambio", async (req, res) => {
   try {
     const idUsuario = req.user.id;

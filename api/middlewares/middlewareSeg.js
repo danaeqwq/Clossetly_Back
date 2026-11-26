@@ -2,7 +2,6 @@ const jwt = require("jsonwebtoken");
 const { TOKEN_SECRET } = process.env;
 const db = require("../../config/db");
 
-// VERIFICAR TOKEN
 function middlewareSeg(req, res, next) {
   const autorizacion = req.headers.authorization;
 

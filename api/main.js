@@ -17,6 +17,7 @@ const propuestasRouter = require("./propuestas/propuestas_main");
 const notificacionesRouter = require("./notificaciones/notificaciones_main");
 const gestionUsuariosRouter = require ("./usuarios/Gestion_usuarios_main")
 const ventasRouter = require ("./ventas/ventas_main")
+const recuperarPassRouter = require("./auth/recuperarPass");
 const adminPublicacionesRouter = require("./publicaciones/publicaciones_admin_main");
 
 const loginRouter = require("./auth/login");
@@ -25,6 +26,7 @@ const registroRouter = require("./auth/registro");
 // RUTAS PÚBLICAS
 router.use("/login", loginRouter);
 router.use("/registro", registroRouter);
+router.use("/recuperar-pass", recuperarPassRouter);
 router.use("/test-estilo/preguntas", preguntasRouter);
 router.use("/test-estilo/resultados", resultadosRouter);
 
