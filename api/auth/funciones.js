@@ -30,11 +30,9 @@ function crearToken(user) {
         nombre: user.nombre,
         rol: user.rol
     };
-
     const token = jwt.sign(payload, TOKEN_SECRET, {
-        expiresIn: "2h"
+        expiresIn: "7d"
     });
-
     return token;
 }
 
