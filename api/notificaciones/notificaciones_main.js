@@ -25,7 +25,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN usuarios u
         ON n.Id_usuario_origen = u.Id_usuario
       WHERE n.Id_usuario = ?
-      ORDER BY n.fecha DESC
+      ORDER BY n.fecha DESC, n.Id_notificacion DESC
     `;
 
     const [notificaciones] = await db.query(consulta, [id_usuario]);

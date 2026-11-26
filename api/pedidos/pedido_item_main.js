@@ -266,6 +266,7 @@ router.patch("/:id", async (req, res) => {
                 ON ci.id_publicacion_compra = pc.id_publicacion_compra
             WHERE ci.Id_carritoItem = ?
                 AND p.id_comprador = ?
+                AND p.id_estado_pedido IS NULL
             FOR UPDATE
         `, [idCarritoItem, idComprador]);
 
@@ -356,6 +357,7 @@ router.delete("/:id", async (req, res) => {
                 ON ci.Id_pedido = p.Id_pedido
             WHERE ci.Id_carritoItem = ?
                 AND p.id_comprador = ?
+                AND p.id_estado_pedido IS NULL
             FOR UPDATE
         `, [idCarritoItem, idComprador]);
 
