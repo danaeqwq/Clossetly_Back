@@ -85,11 +85,57 @@ router.get("/", (req, res) => {
     });
 });
 
-// PRENDAS DISPONIBLES PARA PROPONER INTERCAMBIO
+// PRENDAS COMPATIBLES PARA PROPONER INTERCAMBIO
 router.get("/disponibles-intercambio", async (req, res) => {
-  const idUsuario = req.user.id;
-
   try {
+    const idUsuario = req.user.id;
+    const idPublicacion = req.query.publicacion;
+
+    if (!idPublicacion) {
+      return res.status(400).json({
+        mensaje: "Falta indicar la publicación de intercambio",
+      });
+    }
+
+    // Obtener publicación y comprobar que esté disponible
+    const consultaPublicacion = `
+      SELECT
+        pi.Id_publicacion_intercambio,
+        pi.talle_buscado,
+        pi.estado_MA,
+        p.Id_usuario,
+        p.privacidad
+      FROM publicaciones_intercambio pi
+      INNER JOIN prendas p
+        ON pi.id_prenda = p.id_prenda
+      WHERE pi.Id_publicacion_intercambio = ?
+    `;
+
+    const [publicaciones] = await db.query(consultaPublicacion, [
+      idPublicacion,
+    ]);
+
+    if (publicaciones.length === 0) {
+      return res.status(404).json({
+        mensaje: "La publicación no existe",
+      });
+    }
+
+    const publicacion = publicaciones[0];
+
+    if (Number(publicacion.Id_usuario) === Number(idUsuario)) {
+      return res.status(400).json({
+        mensaje: "No podés proponer un intercambio en tu propia publicación",
+      });
+    }
+
+    if (Number(publicacion.privacidad) !== 1) {
+      return res.status(409).json({
+        mensaje: "La publicación no está disponible",
+      });
+    }
+
+    // Obtener solamente prendas compatibles
     const consulta = `
       SELECT
         p.id_prenda AS id,
@@ -142,20 +188,51 @@ router.get("/disponibles-intercambio", async (req, res) => {
 
       WHERE p.Id_usuario = ?
 
+      AND p.privacidad = 1
+
+      AND p.id_talla = ?
+
+      AND (
+        ? IS NULL
+        OR p.id_estado_prenda <= ?
+      )
+
       AND NOT EXISTS (
         SELECT 1
         FROM publicaciones_compra pc
         WHERE pc.id_prenda = p.id_prenda
       )
 
+      AND EXISTS (
+        SELECT 1
+        FROM categorias_aceptadas cat
+        WHERE cat.id_publicacion_intercambio = ?
+        AND cat.id_categoria = p.id_categoria
+      )
+
+      AND NOT EXISTS (
+        SELECT 1
+        FROM propuestas pr
+        INNER JOIN estados_propuestas ep
+          ON pr.estado_propuesta = ep.Id_estado_propuesta
+        WHERE pr.prenda_ofrecida = p.id_prenda
+        AND ep.estado_propuesta IN ('Pendiente', 'Confirmado')
+      )
+
       ORDER BY p.id_prenda DESC
     `;
 
-    const [prendas] = await db.query(consulta, [idUsuario]);
+    const [prendas] = await db.query(consulta, [
+      idUsuario,
+      publicacion.talle_buscado,
+      publicacion.estado_MA,
+      publicacion.estado_MA,
+      idPublicacion,
+    ]);
 
     res.json({ prendas });
   } catch (error) {
-    console.error("Error al obtener prendas para intercambio:", error);
+    console.error("Error al obtener prendas compatibles:", error);
 
     res.status(500).json({
       mensaje: "Error al obtener prendas disponibles para intercambio",

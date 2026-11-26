@@ -17,6 +17,7 @@ const propuestasRouter = require("./propuestas/propuestas_main");
 const notificacionesRouter = require("./notificaciones/notificaciones_main");
 const gestionUsuariosRouter = require ("./usuarios/Gestion_usuarios_main")
 const ventasRouter = require ("./ventas/ventas_main")
+const adminPublicacionesRouter = require("./publicaciones/publicaciones_admin_main");
 
 const loginRouter = require("./auth/login");
 const registroRouter = require("./auth/registro");
@@ -41,5 +42,6 @@ router.use("/notificaciones", middlewareSeg, notificacionesRouter);
 router.use("/ventas", middlewareSeg, ventasRouter);
 // RUTAS DE ADMINISTRACIÓN
 router.use("/admin/usuarios",middlewareSeg,middlewareRol("Admin"),gestionUsuariosRouter);
+router.use("/admin/publicaciones",middlewareSeg,middlewareRol("Admin"),adminPublicacionesRouter);
 
 module.exports = router;

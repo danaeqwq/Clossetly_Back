@@ -1,7 +1,13 @@
 const router = require("express").Router();
 const db = require("../../config/db");
 
+// ==================================================
+// OBTENER PUBLICACIONES DE COMPRA (BOUTIQUE)
+// ==================================================
+
 router.get("/", (req, res) => {
+  const idUsuario = req.user.id;
+
   const {
     categoria,
     talle,
@@ -29,6 +35,10 @@ router.get("/", (req, res) => {
   // FILTROS GENERALES
   const condiciones = [];
   const valores = [];
+
+  // EXCLUIR LAS PUBLICACIONES DEL USUARIO LOGUEADO
+  condiciones.push("p.Id_usuario <> ?");
+  valores.push(idUsuario);
 
   if (categoria && categoria !== "TODAS") {
     condiciones.push("ca.categoria = ?");
@@ -69,15 +79,15 @@ router.get("/", (req, res) => {
   // FILTRO POR ESTILOS
   if (listaEstilos.length > 0) {
     condiciones.push(`
-            EXISTS (
-                SELECT 1
-                FROM prendas_estilos pe
-                INNER JOIN estilos e
-                    ON pe.id_estilo = e.id_estilo
-                WHERE pe.id_prenda = p.id_prenda
-                AND e.estilo IN (?)
-            )
-        `);
+      EXISTS (
+        SELECT 1
+        FROM prendas_estilos pe
+        INNER JOIN estilos e
+          ON pe.id_estilo = e.id_estilo
+        WHERE pe.id_prenda = p.id_prenda
+        AND e.estilo IN (?)
+      )
+    `);
 
     valores.push(listaEstilos);
   }
@@ -99,67 +109,67 @@ router.get("/", (req, res) => {
 
   // CONSULTA PRINCIPAL
   const consulta = `
-        SELECT
-            pc.id_publicacion_compra AS id,
-            'compra' AS tipo,
-            pc.precio_unitario AS precio,
-            NULL AS talleBuscado,
-            NULL AS estadoMinimoAceptado,
-            JSON_ARRAY() AS tiposAceptados,
+    SELECT
+      pc.id_publicacion_compra AS id,
+      'compra' AS tipo,
+      pc.precio_unitario AS precio,
+      NULL AS talleBuscado,
+      NULL AS estadoMinimoAceptado,
+      JSON_ARRAY() AS tiposAceptados,
 
-            p.id_prenda AS idPrenda,
-            p.nombre,
-            ta.talla AS talle,
-            ep.estado_prenda AS estado,
-            pc.stock,
-            p.privacidad,
-            p.imagen,
+      p.id_prenda AS idPrenda,
+      p.nombre,
+      ta.talla AS talle,
+      ep.estado_prenda AS estado,
+      pc.stock,
+      p.privacidad,
+      p.imagen,
 
-            u.Id_usuario AS idUsuario,
-            u.nombre AS usuario,
+      u.Id_usuario AS idUsuario,
+      u.nombre AS usuario,
 
-            g.genero,
-            ca.id_categoria AS idCategoria,
-            ca.categoria AS prenda,
-            co.color AS color,
-            co.codigo AS codigoColor,
-            te.temporada,
-            oc.ocacion AS ocasion
+      g.genero,
+      ca.id_categoria AS idCategoria,
+      ca.categoria AS prenda,
+      co.color AS color,
+      co.codigo AS codigoColor,
+      te.temporada,
+      oc.ocacion AS ocasion
 
-        FROM publicaciones_compra pc
+    FROM publicaciones_compra pc
 
-        INNER JOIN prendas p
-            ON pc.id_prenda = p.id_prenda
+    INNER JOIN prendas p
+      ON pc.id_prenda = p.id_prenda
 
-        INNER JOIN usuarios u
-            ON p.Id_usuario = u.Id_usuario
+    INNER JOIN usuarios u
+      ON p.Id_usuario = u.Id_usuario
 
-        LEFT JOIN categorias ca
-            ON p.id_categoria = ca.id_categoria
+    LEFT JOIN categorias ca
+      ON p.id_categoria = ca.id_categoria
 
-        LEFT JOIN colores co
-            ON p.id_color = co.id_color
+    LEFT JOIN colores co
+      ON p.id_color = co.id_color
 
-        LEFT JOIN tallas ta
-            ON p.id_talla = ta.id_talla
+    LEFT JOIN tallas ta
+      ON p.id_talla = ta.id_talla
 
-        LEFT JOIN estados_prenda ep
-            ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN estados_prenda ep
+      ON p.id_estado_prenda = ep.id_estado_prenda
 
-        LEFT JOIN temporadas te
-            ON p.id_temporada = te.id_temporada
+    LEFT JOIN temporadas te
+      ON p.id_temporada = te.id_temporada
 
-        LEFT JOIN generos g
-            ON p.id_genero = g.id_genero
+    LEFT JOIN generos g
+      ON p.id_genero = g.id_genero
 
-        LEFT JOIN ocaciones oc
-            ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN ocaciones oc
+      ON p.id_ocacion = oc.id_ocacion
 
-        WHERE p.privacidad = 1
-        ${where}
+    WHERE p.privacidad = 1
+    ${where}
 
-        ORDER BY ${orden}
-    `;
+    ORDER BY ${orden}
+  `;
 
   db.query(consulta, valores)
     .then(([publicaciones]) => {
@@ -173,6 +183,10 @@ router.get("/", (req, res) => {
       });
     });
 });
+
+// ==================================================
+// OBTENER MIS PUBLICACIONES DE COMPRA
+// ==================================================
 
 router.get("/mis", async (req, res) => {
   const idUsuario = req.user.id;
@@ -226,73 +240,78 @@ router.get("/mis", async (req, res) => {
     res.json({ publicaciones });
   } catch (error) {
     console.error("Error al obtener mis ventas:", error);
+
     res.status(500).json({
       mensaje: "Error al obtener tus publicaciones de compra",
     });
   }
 });
 
+// ==================================================
+// OBTENER DETALLE DE UNA PUBLICACIÓN
+// ==================================================
+
 router.get("/:id", (req, res) => {
   const { id } = req.params;
 
   const consulta = `
-        SELECT
-            pc.id_publicacion_compra AS id,
-            'compra' AS tipo,
-            pc.precio_unitario AS precio,
-            pc.stock,
+    SELECT
+      pc.id_publicacion_compra AS id,
+      'compra' AS tipo,
+      pc.precio_unitario AS precio,
+      pc.stock,
 
-            p.id_prenda AS idPrenda,
-            p.nombre,
-            p.imagen,
-            p.privacidad,
+      p.id_prenda AS idPrenda,
+      p.nombre,
+      p.imagen,
+      p.privacidad,
 
-            ta.talla AS talle,
-            ep.estado_prenda AS estado,
-            g.genero,
-            ca.id_categoria AS idCategoria,
-            ca.categoria AS prenda,
-            co.color AS color,
-            co.codigo AS codigoColor,
-            te.temporada,
-            oc.ocacion AS ocasion,
+      ta.talla AS talle,
+      ep.estado_prenda AS estado,
+      g.genero,
+      ca.id_categoria AS idCategoria,
+      ca.categoria AS prenda,
+      co.color AS color,
+      co.codigo AS codigoColor,
+      te.temporada,
+      oc.ocacion AS ocasion,
 
-            u.Id_usuario AS idUsuario,
-            u.nombre AS usuario,
-            u.foto_perfil AS fotoPerfil
+      u.Id_usuario AS idUsuario,
+      u.nombre AS usuario,
+      u.foto_perfil AS fotoPerfil
 
-        FROM publicaciones_compra pc
+    FROM publicaciones_compra pc
 
-        INNER JOIN prendas p
-            ON pc.id_prenda = p.id_prenda
+    INNER JOIN prendas p
+      ON pc.id_prenda = p.id_prenda
 
-        INNER JOIN usuarios u
-            ON p.Id_usuario = u.Id_usuario
+    INNER JOIN usuarios u
+      ON p.Id_usuario = u.Id_usuario
 
-        LEFT JOIN categorias ca
-            ON p.id_categoria = ca.id_categoria
+    LEFT JOIN categorias ca
+      ON p.id_categoria = ca.id_categoria
 
-        LEFT JOIN colores co
-            ON p.id_color = co.id_color
+    LEFT JOIN colores co
+      ON p.id_color = co.id_color
 
-        LEFT JOIN tallas ta
-            ON p.id_talla = ta.id_talla
+    LEFT JOIN tallas ta
+      ON p.id_talla = ta.id_talla
 
-        LEFT JOIN estados_prenda ep
-            ON p.id_estado_prenda = ep.id_estado_prenda
+    LEFT JOIN estados_prenda ep
+      ON p.id_estado_prenda = ep.id_estado_prenda
 
-        LEFT JOIN temporadas te
-            ON p.id_temporada = te.id_temporada
+    LEFT JOIN temporadas te
+      ON p.id_temporada = te.id_temporada
 
-        LEFT JOIN generos g
-            ON p.id_genero = g.id_genero
+    LEFT JOIN generos g
+      ON p.id_genero = g.id_genero
 
-        LEFT JOIN ocaciones oc
-            ON p.id_ocacion = oc.id_ocacion
+    LEFT JOIN ocaciones oc
+      ON p.id_ocacion = oc.id_ocacion
 
-        WHERE pc.id_publicacion_compra = ?
-        AND p.privacidad = 1
-    `;
+    WHERE pc.id_publicacion_compra = ?
+    AND p.privacidad = 1
+  `;
 
   db.query(consulta, [id])
     .then(([resultados]) => {
@@ -313,6 +332,10 @@ router.get("/:id", (req, res) => {
     });
 });
 
+// ==================================================
+// CREAR PUBLICACIÓN DE COMPRA
+// ==================================================
+
 router.post("/", async (req, res) => {
   const idUsuario = req.user.id;
 
@@ -331,7 +354,6 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Comprobar que la prenda pertenece al usuario
     const [prendas] = await db.query(
       `SELECT id_prenda
        FROM prendas
@@ -364,6 +386,10 @@ router.post("/", async (req, res) => {
     });
   }
 });
+
+// ==================================================
+// MODIFICAR PUBLICACIÓN DE COMPRA
+// ==================================================
 
 router.put("/:id", async (req, res) => {
   const idUsuario = req.user.id;
@@ -417,12 +443,15 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// ==================================================
+// ELIMINAR PUBLICACIÓN DE COMPRA
+// ==================================================
+
 router.delete("/:id", async (req, res) => {
   const idUsuario = req.user.id;
   const idPublicacion = req.params.id;
 
   try {
-    // Comprobar que la publicación pertenece al usuario
     const [publicaciones] = await db.query(
       `SELECT pc.id_publicacion_compra
        FROM publicaciones_compra pc
