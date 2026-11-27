@@ -57,14 +57,6 @@ router.get("/", (req, res) => {
     });
 });
 
-<<<<<<< HEAD
-// CAMBIAR EL PEDIDO A EN CONTACTO
-router.patch("/:id/contacto", async (req, res) => {
-  const conexion = await db.getConnection();
-  try {
-    const idComprador = req.user.id;
-    const idPedido = req.params.id;
-=======
 router.patch("/:id/contacto", (req, res) => {
   const idComprador = req.user.id;
   const idPedido = req.params.id;
@@ -84,7 +76,6 @@ router.patch("/:id/contacto", (req, res) => {
         });
         return null;
       }
->>>>>>> e242142510276739c56b606331344d309062796f
 
       const pedido = pedidos[0];
 
