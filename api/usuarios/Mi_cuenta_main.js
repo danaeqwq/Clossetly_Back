@@ -1,9 +1,7 @@
-
 const router = require("express").Router();
 const db = require("../../config/db");
 const { hashPass, verificarPass } = require("../auth/funciones");
 
-// GET - Obtener información de mi cuenta
 router.get("/mi-cuenta", (req, res) => {
     const idUsuario = req.user.Id_usuario;
 
@@ -59,7 +57,6 @@ router.get("/mi-cuenta", (req, res) => {
 
             return Promise.all([
 
-                // 1. PREFERENCIAS SELECCIONADAS DEL USUARIO
                 db.query(
                     `
                         SELECT
@@ -80,7 +77,6 @@ router.get("/mi-cuenta", (req, res) => {
                     [idUsuario]
                 ),
 
-                // 2. RESULTADOS CALCULADOS DEL TEST
                 db.query(
                     `
                         SELECT
@@ -98,7 +94,6 @@ router.get("/mi-cuenta", (req, res) => {
                     [idUsuario]
                 ),
 
-                // 3. TODAS LAS OPCIONES DISPONIBLES
                 db.query(
                     `
                         SELECT
@@ -111,7 +106,6 @@ router.get("/mi-cuenta", (req, res) => {
                     `
                 ),
 
-                // 4. TODOS LOS COLORES DE LA TABLA COLORES
                 db.query(
                     `
                         SELECT
@@ -123,7 +117,6 @@ router.get("/mi-cuenta", (req, res) => {
                     `
                 ),
 
-                // 5. TODOS LOS ESTILOS DISPONIBLES
                 db.query(
                     `
                         SELECT
@@ -142,7 +135,6 @@ router.get("/mi-cuenta", (req, res) => {
                 estilosDisponibles
             ]) => {
 
-                // ORGANIZAR LAS PREFERENCIAS DEL USUARIO
                 const preferenciasUsuario = {
                     prendas: [],
                     colores: [],
@@ -177,7 +169,6 @@ router.get("/mi-cuenta", (req, res) => {
                     }
                 });
 
-                // ORGANIZAR TODOS LOS CATÁLOGOS DISPONIBLES
                 const catalogos = {
                     prendas: [],
                     colores: [],
@@ -186,7 +177,6 @@ router.get("/mi-cuenta", (req, res) => {
                     estilos: []
                 };
 
-                // CATÁLOGO DE PRENDAS, TEMPORADAS Y CALCE
                 opcionesDisponibles[0].forEach(opcion => {
                     const idPregunta = Number(opcion.id_pregunta);
 
@@ -199,7 +189,6 @@ router.get("/mi-cuenta", (req, res) => {
                     }
                 });
 
-                // CATÁLOGO DE COLORES
                 coloresDisponibles[0].forEach(color => {
                     catalogos.colores.push({
                         id_color: color.id_color,
@@ -208,14 +197,12 @@ router.get("/mi-cuenta", (req, res) => {
                     });
                 });
 
-                // ORGANIZAR LOS RESULTADOS CALCULADOS
                 const estilosResultado = resultadosEstilos[0].map(estilo => ({
                     id_estilo: estilo.id_estilo,
                     estilo: estilo.estilo,
                     porcentaje: Number(estilo.porcentaje)
                 }));
 
-                // CATÁLOGO DE ESTILOS
                 estilosDisponibles[0].forEach(estilo => {
                     catalogos.estilos.push({
                         id_estilo: estilo.id_estilo,
@@ -223,7 +210,6 @@ router.get("/mi-cuenta", (req, res) => {
                     });
                 });
 
-                // RESPUESTA
                 res.status(200).json({
                     usuario: {
                         id: usuario.Id_usuario,
@@ -257,8 +243,6 @@ router.get("/mi-cuenta", (req, res) => {
         });
 });
 
-
-// PUT - Actualizar información de mi cuenta
 router.put("/mi-cuenta", (req, res) => {
     const idUsuario = req.user.Id_usuario;
 
@@ -267,7 +251,6 @@ router.put("/mi-cuenta", (req, res) => {
     let rutaFoto = null;
     const archivo = req.files?.fotoPerfil;
 
-    // Guardar foto si se seleccionó una nueva
     const guardarFoto = archivo
         ? (() => {
             const nombreArchivo = `${Date.now()}-${archivo.name}`;
@@ -315,8 +298,6 @@ router.put("/mi-cuenta", (req, res) => {
         });
 });
 
-
-// PUT - Cambiar contraseña
 router.put("/cambiar-contrasena", (req, res) => {
     const idUsuario = req.user.Id_usuario;
 
@@ -406,8 +387,6 @@ router.put("/cambiar-contrasena", (req, res) => {
         });
 });
 
-
-// DELETE - Eliminar cuenta
 router.delete("/eliminar-cuenta", (req, res) => {
     const idUsuario = req.user.Id_usuario;
     const { contrasenaActual } = req.body;
@@ -448,7 +427,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
                 return null;
             }
 
-            // 1. Eliminar propuestas propias y recibidas
             return db.query(
                 `DELETE FROM propuestas
                  WHERE id_usuario = ?
@@ -465,7 +443,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 2. Eliminar categorías aceptadas
             return db.query(
                 `DELETE ca
                  FROM categorias_aceptadas ca
@@ -480,7 +457,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 3. Eliminar publicaciones de intercambio
             return db.query(
                 `DELETE pi
                  FROM publicaciones_intercambio pi
@@ -493,7 +469,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 4. Eliminar relaciones entre prendas y outfits
             return db.query(
                 `DELETE po
                  FROM prendas_outfits po
@@ -509,7 +484,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 5. Eliminar estilos de outfits
             return db.query(
                 `DELETE oe
                  FROM outfit_estilo oe
@@ -522,7 +496,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 6. Eliminar outfits
             return db.query(
                 `DELETE FROM outfits
                  WHERE Id_usuario = ?`,
@@ -532,7 +505,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 7. Eliminar relaciones entre prendas y estilos
             return db.query(
                 `DELETE ps
                  FROM prendas_estilos ps
@@ -545,7 +517,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 8. Eliminar elementos del carrito
             return db.query(
                 `DELETE ci
                  FROM carrito_items ci
@@ -563,7 +534,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 9. Eliminar pedidos
             return db.query(
                 `DELETE pe
                  FROM pedidos pe
@@ -583,7 +553,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 10. Eliminar publicaciones de compra
             return db.query(
                 `DELETE pc
                  FROM publicaciones_compra pc
@@ -596,7 +565,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 11. Eliminar prendas
             return db.query(
                 `DELETE FROM prendas
                  WHERE Id_usuario = ?`,
@@ -606,7 +574,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 12. Eliminar notificaciones
             return db.query(
                 `DELETE FROM \`notificaciónes\`
                  WHERE Id_usuario = ?`,
@@ -616,7 +583,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 13. Eliminar respuestas del test
             return db.query(
                 `DELETE FROM opciones_usuarios
                  WHERE Id_usuario = ?`,
@@ -626,7 +592,6 @@ router.delete("/eliminar-cuenta", (req, res) => {
         .then(resultado => {
             if (!resultado) return;
 
-            // 14. Eliminar usuario
             return db.query(
                 `DELETE FROM usuarios
                  WHERE Id_usuario = ?`,
@@ -649,13 +614,10 @@ router.delete("/eliminar-cuenta", (req, res) => {
         });
 });
 
-
-// PUT - Actualizar una preferencia individual
 router.put("/mi-cuenta/preferencias", (req, res) => {
     const idUsuario = req.user.Id_usuario;
     const { id_pregunta, opcion, seleccionada } = req.body;
 
-    // VALIDAR DATOS RECIBIDOS
     if (
         !Number.isInteger(Number(id_pregunta)) ||
         !opcion ||
@@ -674,7 +636,6 @@ router.put("/mi-cuenta/preferencias", (req, res) => {
         });
     }
 
-    // BUSCAR LA OPCIÓN EN LA BASE DE DATOS
     db.query(
         `
             SELECT id_opcion
@@ -695,7 +656,6 @@ router.put("/mi-cuenta/preferencias", (req, res) => {
             const idOpcion = resultados[0].id_opcion;
 
             if (seleccionada) {
-                // REGISTRAR LA PREFERENCIA SI TODAVÍA NO EXISTE
                 return db.query(
                     `
                         INSERT INTO opciones_usuarios (id_opcion, Id_usuario)
@@ -711,7 +671,6 @@ router.put("/mi-cuenta/preferencias", (req, res) => {
                 );
             }
 
-            // ELIMINAR LA PREFERENCIA SI SE DESELECCIONÓ
             return db.query(
                 `
                     DELETE FROM opciones_usuarios

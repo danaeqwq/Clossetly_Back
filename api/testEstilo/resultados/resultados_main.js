@@ -5,7 +5,6 @@ const db = require("../../../config/db");
 router.post("/", (req, res) => {
     const { idUsuario, respuestas } = req.body;
 
-    // VALIDAR LAS RESPUESTAS
     if (!Array.isArray(respuestas) || respuestas.length === 0) {
         return res.status(400).json({
             mensaje: "Debés responder las seis preguntas"
@@ -17,7 +16,6 @@ router.post("/", (req, res) => {
     let estilos = [];
     let idResultado;
 
-    // VERIFICAR QUE LAS RESPUESTAS CORRESPONDAN A LAS SEIS PREGUNTAS
     db.query(
         `SELECT id_opcion, id_pregunta
          FROM opciones
@@ -36,7 +34,6 @@ router.post("/", (req, res) => {
             throw new Error("RESPUESTAS_INVALIDAS");
         }
 
-        // BORRAR RESPUESTAS ANTERIORES
         return db.query(
             `DELETE FROM opciones_usuarios
              WHERE Id_usuario = ?`,
@@ -44,7 +41,6 @@ router.post("/", (req, res) => {
         );
     })
     .then(() => {
-        // GUARDAR LAS NUEVAS RESPUESTAS
         const valores = ids.map(id => [id, idUsuario]);
 
         return db.query(
@@ -55,7 +51,6 @@ router.post("/", (req, res) => {
         );
     })
     .then(() => {
-        // CALCULAR LOS PUNTAJES DE LOS ESTILOS
         return db.query(
             `SELECT
                 e.id_estilo,
@@ -93,7 +88,6 @@ router.post("/", (req, res) => {
             )
         }));
 
-        // BUSCAR SI EL USUARIO YA TIENE UN RESULTADO
         return db.query(
             `SELECT id_resultado
              FROM resultados
@@ -112,7 +106,6 @@ router.post("/", (req, res) => {
             );
         }
 
-        // CREAR UN RESULTADO NUEVO
         return db.query(
             `INSERT INTO resultados (Id_usuario)
              VALUES (?)`,
@@ -122,7 +115,6 @@ router.post("/", (req, res) => {
         });
     })
     .then(() => {
-        // GUARDAR LOS PORCENTAJES
         const valores = estilos.map(estilo => [
             estilo.id_estilo,
             idResultado,

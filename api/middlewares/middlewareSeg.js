@@ -13,14 +13,18 @@ function middlewareSeg(req, res, next) {
 
   const token = autorizacion.split(" ")[1];
 
-  try {
-    const user = jwt.verify(token, TOKEN_SECRET);
+  jwt.verify(token, TOKEN_SECRET, (error, user) => {
+    if (error) {
+      return res.status(401).json({
+        mensaje: "Token inválido o vencido",
+      });
+    }
 
     const consulta = `
-            SELECT Id_usuario, nombre, correo, rol, estado_usuario
-            FROM usuarios
-            WHERE Id_usuario = ?
-        `;
+      SELECT Id_usuario, nombre, correo, rol, estado_usuario
+      FROM usuarios
+      WHERE Id_usuario = ?
+    `;
 
     db.query(consulta, [user.id])
       .then(([resultados]) => {
@@ -31,7 +35,6 @@ function middlewareSeg(req, res, next) {
         }
 
         const usuario = resultados[0];
-
         const estado = String(usuario.estado_usuario).trim().toLowerCase();
 
         if (estado !== "1" && estado !== "activo") {
@@ -44,6 +47,7 @@ function middlewareSeg(req, res, next) {
           ...usuario,
           id: usuario.Id_usuario,
         };
+
         next();
       })
       .catch((error) => {
@@ -53,13 +57,7 @@ function middlewareSeg(req, res, next) {
           mensaje: "Error al verificar el usuario",
         });
       });
-  } catch (error) {
-    console.error("Error al verificar token:", error);
-
-    return res.status(401).json({
-      mensaje: "Token inválido o vencido",
-    });
-  }
+  });
 }
 
 module.exports = middlewareSeg;
