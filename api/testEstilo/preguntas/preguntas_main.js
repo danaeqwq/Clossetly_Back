@@ -2,7 +2,6 @@
 const router = require("express").Router();
 const db = require("../../../config/db");
 
-// OBTENER PREGUNTAS Y OPCIONES
 router.get("/", (req, res) => {
     db.query(
         `SELECT
@@ -20,19 +19,16 @@ router.get("/", (req, res) => {
     )
     .then(([datos]) => {
         const preguntas = [];
-
         datos.forEach(dato => {
             let pregunta = preguntas.find(
                 p => p.Id_pregunta === dato.Id_pregunta
             );
-
             if (!pregunta) {
                 pregunta = {
                     Id_pregunta: dato.Id_pregunta,
                     pregunta: dato.pregunta,
                     opciones: []
                 };
-
                 preguntas.push(pregunta);
             }
 
