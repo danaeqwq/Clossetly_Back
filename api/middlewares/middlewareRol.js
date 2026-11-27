@@ -1,4 +1,3 @@
-
 function middlewareRol(rolPermitido) {
     return (req, res, next) => {
         if (req.user.rol !== rolPermitido) {

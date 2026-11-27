@@ -5,7 +5,6 @@ const { hashPass } = require("./funciones");
 
 router.post("/", (req, res) => {
     const { nombre, correo, pass, telefono } = req.body;
-    // VALIDAR CAMPOS
     if (!nombre || !correo || !pass || !telefono) {
         return res.status(400).json({
             mensaje: "Todos los campos son obligatorios"
@@ -15,7 +14,6 @@ router.post("/", (req, res) => {
     const correoLimpio = correo.trim();
     const telefonoLimpio = telefono.trim();
 
-    // VERIFICAR SI EL NOMBRE O CORREO YA ESTÁN REGISTRADOS
     const consultaVerificar = `
         SELECT nombre, correo
         FROM usuarios
@@ -25,7 +23,6 @@ router.post("/", (req, res) => {
 
     db.query(consultaVerificar, [nombreLimpio, correoLimpio])
         .then(([resultados]) => {
-            // VERIFICAR NOMBRE REPETIDO
             const nombreExiste = resultados.some(
                 (usuario) =>
                     usuario.nombre.toLowerCase() === nombreLimpio.toLowerCase()
@@ -35,7 +32,6 @@ router.post("/", (req, res) => {
                     mensaje: "Ese nombre de usuario ya está registrado"
                 });
             }
-            // VERIFICAR CORREO REPETIDO
             const correoExiste = resultados.some(
                 (usuario) =>
                     usuario.correo.toLowerCase() === correoLimpio.toLowerCase()
@@ -46,7 +42,6 @@ router.post("/", (req, res) => {
                 });
             }
 
-            // SI NINGUNO EXISTE, CONTINUAR CON EL REGISTRO
             return hashPass(pass)
                 .then((hash) => {
                     const consultaInsertar = `

@@ -16,6 +16,7 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS
     }
 });
+
 router.post("/", (req, res) => {
     const { correo } = req.body;
 
@@ -104,18 +105,15 @@ router.post("/", (req, res) => {
         });
 });
 
-// VERIFICAR CÓDIGO DE RECUPERACIÓN
 router.post("/verificar", (req, res) => {
     const { correo, codigo } = req.body;
 
-    // VALIDAR CAMPOS
     if (!correo || !correo.trim() || !/^\d{6}$/.test(String(codigo || ""))) {
         return res.status(400).json({
             mensaje: "Ingresá un correo y un código válido de 6 dígitos"
         });
     }
 
-    // BUSCAR CÓDIGO DE RECUPERACIÓN
     const consulta = `
         SELECT r.Id_recuperacion, r.Id_usuario,
                r.codigo_hash, r.fecha_expiracion, r.usado
@@ -130,7 +128,6 @@ router.post("/verificar", (req, res) => {
     db.query(consulta, [correo.trim()])
         .then(([resultados]) => {
 
-            // VERIFICAR SI EXISTE UN CÓDIGO
             if (resultados.length === 0) {
                 return res.status(400).json({
                     mensaje: "Código inválido o inexistente"
@@ -139,14 +136,12 @@ router.post("/verificar", (req, res) => {
 
             const recuperacion = resultados[0];
 
-            // VERIFICAR VENCIMIENTO
             if (new Date(recuperacion.fecha_expiracion) <= new Date()) {
                 return res.status(400).json({
                     mensaje: "El código ha expirado"
                 });
             }
 
-            // VERIFICAR SI EL CÓDIGO COINCIDE
             return verificarCodigo(
                 String(codigo),
                 recuperacion.codigo_hash
@@ -159,7 +154,6 @@ router.post("/verificar", (req, res) => {
                         });
                     }
 
-                    // MARCAR CÓDIGO COMO UTILIZADO
                     const actualizar = `
                         UPDATE recuperacion_password
                         SET usado = 1
@@ -171,7 +165,6 @@ router.post("/verificar", (req, res) => {
                     ])
                         .then(() => {
 
-                            // GENERAR TOKEN DE RECUPERACIÓN
                             const token = crearTokenRecuperacion(
                                 recuperacion.Id_usuario,
                                 recuperacion.Id_recuperacion
@@ -193,11 +186,9 @@ router.post("/verificar", (req, res) => {
         });
 });
 
-// CAMBIAR CONTRASEÑA POR RECUPERACIÓN
 router.post("/cambiar", (req, res) => {
     const { nuevaPass, confirmarPass } = req.body;
 
-    // OBTENER TOKEN DE RECUPERACIÓN
     const autorizacion = req.headers.authorization;
 
     if (!autorizacion || !autorizacion.startsWith("Bearer ")) {
@@ -208,21 +199,18 @@ router.post("/cambiar", (req, res) => {
 
     const token = autorizacion.split(" ")[1];
 
-    // VALIDAR CAMPOS
     if (!nuevaPass || !confirmarPass) {
         return res.status(400).json({
             mensaje: "Todos los campos son obligatorios"
         });
     }
 
-    // VERIFICAR QUE LAS CONTRASEÑAS COINCIDAN
     if (nuevaPass !== confirmarPass) {
         return res.status(400).json({
             mensaje: "Las contraseñas no coinciden"
         });
     }
 
-    // VERIFICAR TOKEN
     let datosToken;
 
     try {
@@ -237,7 +225,6 @@ router.post("/cambiar", (req, res) => {
     });
 }
 
-    // VERIFICAR TIPO DE TOKEN
     if (
         datosToken.tipo !== "recuperacion" ||
         !datosToken.id ||
@@ -248,7 +235,6 @@ router.post("/cambiar", (req, res) => {
         });
     }
 
-    // VERIFICAR QUE LA RECUPERACIÓN EXISTA
     const consulta = `
         SELECT Id_recuperacion, Id_usuario
         FROM recuperacion_password
@@ -269,11 +255,9 @@ router.post("/cambiar", (req, res) => {
                 });
             }
 
-            // GENERAR HASH DE LA NUEVA CONTRASEÑA
             return hashPass(nuevaPass)
                 .then((passHash) => {
 
-                    // ACTUALIZAR CONTRASEÑA
                     const actualizar = `
                         UPDATE usuarios
                         SET contraseña = ?
@@ -287,7 +271,6 @@ router.post("/cambiar", (req, res) => {
                 })
                 .then(() => {
 
-                    // ELIMINAR REGISTRO DE RECUPERACIÓN
                     const eliminar = `
                         DELETE FROM recuperacion_password
                         WHERE Id_recuperacion = ?
