@@ -2,7 +2,6 @@
 const router = require("express").Router();
 const db = require("../../../config/db");
 
-// FINALIZAR TEST DE ESTILO
 router.post("/", (req, res) => {
     const { idUsuario, respuestas } = req.body;
 
